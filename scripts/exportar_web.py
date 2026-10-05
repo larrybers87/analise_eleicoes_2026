@@ -15,6 +15,9 @@ RESULTADOS (refresháveis por `verificar_atualizacoes.py`) — `web/data/`:
   - `resultados/uf/uf_<sigla>.json` UF completa + todos os municípios dela
   - `resultados/municipios_br.json` índice nacional compacto (cor + busca por nome)
   - `exterior.json`                 186 registros do exterior + agregado
+  - `resultados/forca/cand_<nr>.json` (12) % dos válidos de UM candidato nos 5.571
+                                    municípios — array posicional, sob demanda (D-018)
+  - `resumo_candidatos.json`        painel do candidato selecionado, pré-calculado
 
 Toda cor sai daqui pronta em hex (`src/eleicao/cores.py`) — o JavaScript nunca
 recalcula mistura/OKLab (regra do agente `mapa-web`).
@@ -44,13 +47,19 @@ import topojson as tp
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from eleicao import config  # noqa: E402
+from eleicao import config, forca  # noqa: E402
 from eleicao.cores import (  # noqa: E402
     COR_OUTROS,
+    ESCALA_NEUTRA_FIM_HEX,
+    FRACOES_ESCALA,
     MARGEM_SATURACAO,
+    N_STOPS_ESCALA,
     NEUTRO_EMPATE_HEX,
     agrupar_outros,
     carregar_paleta,
+    eh_acromatico,
+    escala_forca,
+    escala_forca_neutra,
     mistura_oklab,
     vencedor_margem,
 )
@@ -130,6 +139,24 @@ COR_SEM_VOTOS = "#eeeeee"
 nunca foi instalada — ver docs/DADOS.md). Não é mistura de nada: é um hachurado
 visual de "sem dado", definido aqui (Python) e só lido pelo JS."""
 
+COR_NAO_VENCEU = "#cfd6dd"
+OPACIDADE_NAO_VENCEU = 0.45
+"""Modo "Onde venceu" (D-018): regiões em que o candidato selecionado NÃO foi
+o 1º colocado. Cinza-azulado claro com opacidade baixa — fica visivelmente
+"para trás" das regiões pintadas na cor do candidato, mas ainda deixa ler a
+fronteira e o relevo do mapa (opacidade 0 esconderia o desenho do país).
+Escolhido mais escuro que `COR_SEM_VOTOS`/`NEUTRO_EMPATE_HEX` de propósito:
+"ele não venceu aqui" é diferente de "não há dado aqui" e de "empate".
+Definido aqui, no Python, e só lido pelo JS — mesma regra das outras cores."""
+
+PCT_DECIMAIS = 3
+"""Casas decimais dos percentuais exportados em `resultados/forca/*.json`.
+
+Não é estética: os 7 candidatos menores têm percentil 98 entre 0,043% e
+0,17% (medido). Com 2 casas, a escala de cor de Rui Costa Pimenta teria 5
+degraus no total; com 3 casas, ~43. O custo é ~1 byte por município por
+candidato (~5KB brutos por arquivo, quase nada depois do gzip)."""
+
 CAMPOS_TOTAIS = [
     "eleitorado",
     "comparecimento",
@@ -159,6 +186,52 @@ FORMATO_MUNICIPIOS_BR = [
 """Ordem dos campos de cada entrada de `resultados/municipios_br.json`
 (array em vez de objeto — 5.571 entradas, economiza ~40% do arquivo).
 Replicado em `meta.json` para o JS não hardcodar a ordem."""
+
+FORMATO_TOP_MUNICIPIOS = ["cd_mun_ibge", "nome", "uf", "pct", "votos"]
+"""Ordem dos campos de cada linha dos top 10 de `resumo_candidatos.json`."""
+
+ORDEM_FORCA = "cd_mun_ibge crescente (numérico)"
+"""Ordem dos arrays posicionais de `resultados/forca/cand_<nr>.json`.
+
+Declarada em `meta.json` (`forca_ordem`) e garantida por
+`eleicao.forca.pct_por_municipio`. O JS NÃO pode confiar na ordem de inserção
+das chaves de `municipios_br.json`: as chaves são códigos IBGE de 7 dígitos,
+que o JavaScript trata como "integer-indexed properties" e reordena
+numericamente em `Object.keys`, independentemente da ordem em que o Python as
+escreveu. Em vez de depender desse detalhe, os dois lados usam a mesma ordem
+explícita (numérica crescente) e o JS ordena na mão; o campo `n` de cada
+arquivo serve de conferência de alinhamento."""
+
+N_TOP_MUNICIPIOS = 10
+
+
+def offsets_forca(indice: list[str], uf_por_ibge: dict[str, str]) -> dict[str, int]:
+    """Posição inicial de cada UF dentro do array posicional de `forca/cand_<nr>.json`.
+
+    Funciona porque o código IBGE de 7 dígitos começa com o código de 2 dígitos
+    da UF: ordenar os municípios por `cd_mun_ibge` crescente (ver `ORDEM_FORCA`)
+    os deixa automaticamente AGRUPADOS por UF, em blocos contíguos. Com o
+    offset do bloco, o front-end fatia o array de um candidato para uma UF
+    específica usando só os códigos daquela UF (que ele já tem em
+    `uf_<sigla>.json`) — sem precisar baixar o índice nacional de 5.571
+    municípios (117KB gzip) só para descobrir a posição de cada um.
+
+    Aborta se algum bloco não for contíguo (se algum dia a premissa do código
+    IBGE mudar, é melhor o build quebrar do que o mapa pintar a UF errada).
+    """
+    offsets: dict[str, int] = {}
+    ultima: str | None = None
+    for i, ibge in enumerate(indice):
+        sigla = uf_por_ibge[ibge]
+        if sigla != ultima:
+            if sigla in offsets:
+                raise SystemExit(
+                    f"bloco da UF {sigla} não é contíguo na ordem '{ORDEM_FORCA}' "
+                    "— o fatiamento por UF do front-end deixaria de valer"
+                )
+            offsets[sigla] = i
+            ultima = sigla
+    return offsets
 
 
 # ============================== resultados ===================================
@@ -233,6 +306,155 @@ def escala_margem(nr: int, paleta: dict[int, str]) -> list[str]:
         votos = {nr: round(5000 * (1 + m)), -1: round(5000 * (1 - m))}
         stops.append(vencedor_margem(votos, paleta))
     return stops
+
+
+def _pct(valor: float) -> float | int:
+    """Arredonda para `PCT_DECIMAIS` e devolve `int` quando dá 0 (encurta o JSON)."""
+    v = round(float(valor), PCT_DECIMAIS)
+    return 0 if v == 0 else v
+
+
+def votos_posicional(votos: dict[int, int], ordem: list[int]) -> list[int]:
+    """`[votos_do_candidato_1, ...]` na ordem de `meta.json.ordem_candidatos`.
+
+    Deliberadamente SEM `agrupar_outros`: este array existe justamente para o
+    modo "Força", que precisa do número de CADA um dos 12 candidatos. O
+    `votos[]` dos registros (que o painel usa nas barras) continua agrupado —
+    os dois convivem porque servem a coisas diferentes (D-018)."""
+    return [int(votos.get(nr, 0)) for nr in ordem]
+
+
+def exportar_forca(
+    pct_mun: pd.DataFrame, p98: dict[int, float], paleta: dict[int, str]
+) -> tuple[dict[str, int], int]:
+    """Um arquivo por candidato com o % dos válidos dele nos 5.571 municípios.
+
+    Array POSICIONAL (ver `ORDEM_FORCA`), sem a chave do município — é o que
+    torna o arquivo pequeno o bastante (19–38KB brutos, 3–16KB gzip) para ser
+    baixado sob demanda quando o usuário seleciona um candidato. Só o NÚMERO
+    sai daqui: a cor nasce no navegador combinando esse número com os stops de
+    `meta.json.escala_forca` numa expressão `interpolate` do MapLibre — nunca
+    exportamos cor por município × candidato (12 × 5.571 = 66.852 cores).
+    """
+    total = 0
+    for nr in sorted(paleta):
+        if nr not in pct_mun.columns:
+            raise SystemExit(f"candidato {nr} da paleta ausente do parquet de municípios")
+        obj = {
+            "nr": nr,
+            "n": int(len(pct_mun)),
+            "p98": round(p98[nr], 4),
+            "ordem": ORDEM_FORCA,
+            "pct": [_pct(v) for v in pct_mun[nr]],
+        }
+        total += escrever_json(WEB_DATA / "resultados" / "forca" / f"cand_{nr}.json", obj)
+    return {"resultados/forca/cand_<nr>.json (12)": total}, total
+
+
+def construir_resumo(
+    mun_tot: pd.DataFrame,
+    pct_mun: pd.DataFrame,
+    votos_mun: dict[Any, dict[int, int]],
+    votos_ext_agregado: dict[int, int],
+    p98: dict[int, float],
+    ordem: list[int],
+) -> dict[str, Any]:
+    """Resumo por candidato para o painel lateral (pré-calculado em Python).
+
+    O que entra aqui é só o que o JS NÃO consegue derivar do que já carregou:
+    municípios vencidos (total e por UF — derivável de `municipios_br.json`,
+    mas isso forçaria baixar 117KB gzip só para contar), os dois top 10
+    (derivável, mas exigiria os 27 `uf_*.json`, ~450KB gzip por seleção) e o
+    resultado no exterior. Melhor/pior UF NÃO entra: o JS calcula exato a
+    partir de `br.json.ufs[].votos_cand`, que já está carregado desde o
+    início (ver D-018).
+    """
+    mun_br = mun_tot[~mun_tot["eh_exterior"]]
+    chave_por_ibge: dict[str, tuple[str, str]] = {}
+    uf_por_ibge: dict[str, str] = {}
+    nome_por_ibge: dict[str, str] = {}
+    for ibge, uf, cd, nome in zip(
+        mun_br["cd_mun_ibge"],
+        mun_br["uf"],
+        mun_br["cd_mun_tse"],
+        mun_br["nm_mun"],
+        strict=True,
+    ):
+        chave_por_ibge[str(ibge)] = (uf, cd)
+        uf_por_ibge[str(ibge)] = str(uf)
+        nome_por_ibge[str(ibge)] = str(nome)
+
+    # vencedor de cada município (todos os candidatos, sem agrupamento)
+    vencidos: dict[int, list[str]] = {nr: [] for nr in ordem}
+    for ibge, chave in chave_por_ibge.items():
+        votos = votos_mun.get(chave, {})
+        if not votos or sum(votos.values()) <= 0:
+            continue
+        nr = max(votos.items(), key=lambda it: it[1])[0]
+        vencidos.setdefault(int(nr), []).append(ibge)
+
+    # vencedor de cada local do exterior (para "venceu em N postos")
+    vencidos_ext: dict[int, int] = {nr: 0 for nr in ordem}
+    com_voto_ext = 0
+    for (uf, _cd), votos in votos_mun.items():
+        if uf != config.UF_EXTERIOR or sum(votos.values()) <= 0:
+            continue
+        com_voto_ext += 1
+        vencidos_ext[max(votos.items(), key=lambda it: it[1])[0]] += 1
+
+    total_ext = sum(votos_ext_agregado.values())
+    ordem_ext = sorted(votos_ext_agregado.items(), key=lambda it: it[1], reverse=True)
+    posicao_ext = {nr: i + 1 for i, (nr, _) in enumerate(ordem_ext)}
+
+    # votos absolutos por município × candidato, na mesma ordem de pct_mun
+    votos_abs = pd.DataFrame(
+        {
+            nr: [votos_mun.get(chave_por_ibge[ibge], {}).get(nr, 0) for ibge in pct_mun.index]
+            for nr in ordem
+        },
+        index=pct_mun.index,
+    )
+
+    def top(serie: pd.Series, nr: int) -> list[list[Any]]:
+        melhores = serie.sort_values(ascending=False).head(N_TOP_MUNICIPIOS)
+        return [
+            [
+                ibge,
+                nome_por_ibge[ibge],
+                uf_por_ibge[ibge],
+                _pct(pct_mun.loc[ibge, nr]),
+                int(votos_abs.loc[ibge, nr]),
+            ]
+            for ibge in melhores.index
+        ]
+
+    resumo: dict[str, Any] = {}
+    for nr in ordem:
+        ibges = vencidos.get(nr, [])
+        por_uf: dict[str, int] = {}
+        for ibge in ibges:
+            sigla = uf_por_ibge[ibge]
+            por_uf[sigla] = por_uf.get(sigla, 0) + 1
+        resumo[str(nr)] = {
+            "p98": round(p98[nr], 4),
+            "municipios_vencidos": len(ibges),
+            "municipios_vencidos_por_uf": dict(sorted(por_uf.items())),
+            "pct_max_municipio": _pct(pct_mun[nr].max()),
+            "top_pct": top(pct_mun[nr], nr),
+            "top_votos": top(votos_abs[nr], nr),
+            "exterior": {
+                "votos": int(votos_ext_agregado.get(nr, 0)),
+                "pct": _pct(votos_ext_agregado.get(nr, 0) / total_ext * 100) if total_ext else 0,
+                "posicao": posicao_ext.get(nr),
+                "locais_vencidos": vencidos_ext.get(nr, 0),
+                "locais_com_voto": com_voto_ext,
+            },
+        }
+    return {
+        "formato_top": FORMATO_TOP_MUNICIPIOS,
+        "n_municipios_br": int(len(mun_br)),
+        "candidatos": resumo,
+    }
 
 
 def lista_candidatos(votos: dict[int, int]) -> list[list[Any]]:
@@ -317,6 +539,28 @@ def exportar_resultados(cfg_mun: dict[str, Any], paleta: dict[int, str]) -> dict
     votos_uf = votos_por_regiao(uf_cand, ["uf"])
     votos_mun = votos_por_regiao(mun_cand, ["uf", "cd_mun_tse"])
 
+    votos_br = dict(
+        zip(br_cand["nr_candidato"].astype(int), br_cand["votos"].astype(int), strict=True)
+    )
+    # ordem canônica dos arrays posicionais `votos_cand`: por votação nacional
+    # (é também a ordem do seletor de candidato do mapa).
+    ordem_cand = [nr for nr, _ in sorted(votos_br.items(), key=lambda it: it[1], reverse=True)]
+    if set(ordem_cand) != set(paleta):
+        raise SystemExit(
+            f"paleta e parquet divergem: {sorted(set(paleta) ^ set(ordem_cand))} "
+            "— regenere config/candidatos.yaml a partir de presidente_t1_br.parquet"
+        )
+    total_validos_br = sum(votos_br.values())
+
+    # --- "força": % dos válidos por município × candidato (exterior fora) ----
+    pct_mun = forca.pct_por_municipio(mun_cand, mun_tot)
+    p98 = {nr: forca.escala_maxima(pct_mun[nr]) for nr in ordem_cand}
+    mun_br_tot = mun_tot[~mun_tot["eh_exterior"]]
+    uf_por_ibge = {
+        str(i): str(u) for i, u in zip(mun_br_tot["cd_mun_ibge"], mun_br_tot["uf"], strict=True)
+    }
+    offsets = offsets_forca(list(pct_mun.index), uf_por_ibge)
+
     tamanhos: dict[str, int] = {}
 
     # --- sanidade: soma dos candidatos == validos do bloco de totais ----------
@@ -356,15 +600,44 @@ def exportar_resultados(cfg_mun: dict[str, Any], paleta: dict[int, str]) -> dict
                 "nm_urna": info["nm_urna"],
                 "partido": info["partido"],
                 "cor": paleta[nr],
+                # votos/pct nacionais aqui (e não só em br.json) porque o
+                # seletor de candidato precisa dos 12, e o `votos[]` de
+                # br.json já vem com `agrupar_outros` aplicado — os 7 menores
+                # estariam somados em "outros" lá.
+                "votos": int(votos_br[nr]),
+                "pct_validos": round(votos_br[nr] / total_validos_br * 100, 4),
+                "acromatico": eh_acromatico(paleta[nr]),
             }
             for nr, info in sorted(nomes_cand.items())
         },
+        "ordem_candidatos": ordem_cand,
         "cor_outros": COR_OUTROS,
         "cor_sem_votos": COR_SEM_VOTOS,
+        "cor_nao_venceu": COR_NAO_VENCEU,
+        "opacidade_nao_venceu": OPACIDADE_NAO_VENCEU,
         "neutro_empate": NEUTRO_EMPATE_HEX,
         "margem_saturacao_pp": MARGEM_SATURACAO * 100,
         "escala_margem_pp": ESCALA_MARGEM_PP,
         "escala_margem": {str(nr): escala_margem(nr, paleta) for nr in sorted(paleta)},
+        # --- modo "Força" (D-018) ---------------------------------------------
+        # `escala_forca[nr]` = N_STOPS_ESCALA cores hex já interpoladas em
+        # OKLab, de 0% dos válidos até `forca_p98[nr]`%; `escala_forca_fracoes`
+        # diz em que fração do teto cada stop fica. O JS multiplica fração ×
+        # p98 para montar o `interpolate` do MapLibre e os ticks da legenda —
+        # nunca calcula cor. Os 7 candidatos acromáticos compartilham
+        # `escala_forca_neutra` (o valor em `escala_forca[nr]` deles é
+        # idêntico a ela, para o JS não precisar de caso especial).
+        "escala_forca_fracoes": [round(f, 6) for f in FRACOES_ESCALA],
+        "escala_forca": {str(nr): escala_forca(nr, paleta) for nr in sorted(paleta)},
+        "escala_forca_neutra": escala_forca_neutra(),
+        "escala_neutra_fim": ESCALA_NEUTRA_FIM_HEX,
+        "n_stops_escala": N_STOPS_ESCALA,
+        "forca_p98": {str(nr): round(p98[nr], 4) for nr in sorted(paleta)},
+        "forca_percentil": forca.PERCENTIL_FORCA,
+        "forca_ordem": ORDEM_FORCA,
+        "forca_offsets": offsets,
+        "n_municipios_br": int(len(pct_mun)),
+        "formato_top_municipios": FORMATO_TOP_MUNICIPIOS,
         "formato_municipios_br": FORMATO_MUNICIPIOS_BR,
         "ufs": [
             {
@@ -378,11 +651,9 @@ def exportar_resultados(cfg_mun: dict[str, Any], paleta: dict[int, str]) -> dict
     tamanhos["meta.json"] = escrever_json(WEB_DATA / "meta.json", meta)
 
     # --- br.json (Brasil + resumo das UFs + resumo do exterior) --------------
-    votos_br = dict(
-        zip(br_cand["nr_candidato"].astype(int), br_cand["votos"].astype(int), strict=True)
-    )
     reg_br = registro(br_tot, votos_br, paleta)
     reg_br["nome"] = "Brasil"
+    reg_br["votos_cand"] = votos_posicional(votos_br, ordem_cand)
 
     resumo_ufs = []
     registros_uf: dict[str, dict[str, Any]] = {}
@@ -405,6 +676,11 @@ def exportar_resultados(cfg_mun: dict[str, Any], paleta: dict[int, str]) -> dict
                 "margem_pp": reg["margem_pp"],
                 "eleitorado": reg["totais"]["eleitorado"],
                 "validos": reg["totais"]["validos"],
+                # 27 × 12 inteiros (~2,6KB brutos): é o que faz o modo
+                # "Força" e o ranking de melhor/pior UF funcionarem no nível
+                # "Brasil por UF" com ZERO requisição extra. Votos absolutos
+                # (e não %) para o JS derivar o % exato de `validos`.
+                "votos_cand": votos_posicional(votos_uf[sigla], ordem_cand),
             }
         )
 
@@ -425,6 +701,7 @@ def exportar_resultados(cfg_mun: dict[str, Any], paleta: dict[int, str]) -> dict
             "vencedor": reg_ext["vencedor"],
             "margem_pp": reg_ext["margem_pp"],
             "votos": reg_ext["votos"],
+            "votos_cand": votos_posicional(votos_uf[config.UF_EXTERIOR], ordem_cand),
             "totais": reg_ext["totais"],
             "n_locais": cfg_mun["n_municipios"][config.UF_EXTERIOR],
         },
@@ -470,6 +747,10 @@ def exportar_resultados(cfg_mun: dict[str, Any], paleta: dict[int, str]) -> dict
         votos = votos_mun[(linha["uf"], linha["cd_mun_tse"])]
         reg = registro(linha, votos, paleta)
         reg.pop("cd_mun_ibge", None)
+        # 186 × 12 inteiros (~11KB brutos, arquivo só do modal): permite
+        # ordenar/destacar a lista do exterior por QUALQUER candidato,
+        # inclusive os 7 que `agrupar_outros` esconderia em "outros".
+        reg["votos_cand"] = votos_posicional(votos, ordem_cand) if sum(votos.values()) else None
         locais.append(reg)
     locais.sort(key=lambda it: it["nome"])
     tamanhos["exterior.json"] = escrever_json(
@@ -477,8 +758,28 @@ def exportar_resultados(cfg_mun: dict[str, Any], paleta: dict[int, str]) -> dict
         {"agregado": reg_ext, "locais": locais},
     )
 
+    # --- força por candidato + resumo do painel ------------------------------
+    tam_forca, _ = exportar_forca(pct_mun, p98, paleta)
+    tamanhos.update(tam_forca)
+
+    resumo = construir_resumo(
+        mun_tot, pct_mun, votos_mun, votos_uf[config.UF_EXTERIOR], p98, ordem_cand
+    )
+    tamanhos["resumo_candidatos.json"] = escrever_json(WEB_DATA / "resumo_candidatos.json", resumo)
+
+    kb_forca = tamanhos["resultados/forca/cand_<nr>.json (12)"] / 1024
     print(
         f"  resultados: {len(indice_br)} municípios no índice nacional, {len(locais)} no exterior"
+    )
+    print(
+        "  força (p98 do % dos válidos por município, exterior fora): "
+        + ", ".join(f"{nr}={p98[nr]:.3f}%" for nr in ordem_cand[:5])
+        + f", … (12 arquivos, {kb_forca:.0f}KB brutos)"
+    )
+    vencidos_total = sum(c["municipios_vencidos"] for c in resumo["candidatos"].values())
+    print(
+        f"  resumo: {vencidos_total} municípios atribuídos a um vencedor "
+        f"(de {resumo['n_municipios_br']})"
     )
     return tamanhos
 
@@ -746,9 +1047,11 @@ def main() -> int:
 GRUPOS = [
     ("meta.json", ["meta.json"]),
     ("exterior.json", ["exterior.json"]),
+    ("resumo_candidatos.json", ["resumo_candidatos.json"]),
     ("resultados/br.json", ["resultados/br.json"]),
     ("resultados/municipios_br.json", ["resultados/municipios_br.json"]),
     ("resultados/uf/uf_<sigla>.json", ["resultados/uf/"]),
+    ("resultados/forca/cand_<nr>.json", ["resultados/forca/"]),
     ("geo/brasil_uf.topojson", ["geo/brasil_uf.topojson"]),
     ("geo/brasil_municipios.topojson", ["geo/brasil_municipios.topojson"]),
     ("geo/municipios/uf_<sigla>.topojson", ["geo/municipios/"]),

@@ -1,6 +1,6 @@
 # STATUS
 
-Última atualização: 2026-10-05 — auditoria do que está versionado (D-017): AGENTS.md removido, notebook limpo com nbstripout, .gitignore reforçado.
+Última atualização: 2026-10-05 — F2.2 entregue: seleção de candidato no mapa, modos "Onde venceu" e "Força".
 
 ## Feito
 - Estrutura de pastas, `CLAUDE.md`, docs (`DADOS.md`, `DECISOES.md`, `ROADMAP.md`), `.gitignore`, `environment.yml`, `pyproject.toml`.
@@ -27,6 +27,13 @@
   - `web/` (MapLibre GL JS 5.24.0 + topojson-client 3.1.0 via CDN, vanilla, sem build step, sem basemap de terceiros): Brasil por UF ↔ Brasil por município, drill-down por UF → município, 2 modos de cor com legenda própria, painel lateral completo (barras com "Outros" já agrupado em Python, comparecimento/abstenção/brancos/`nulos_vn`+`nulos_tvn`/anulados só se >0, status de totalização em texto), hover por `feature-state`, busca por nome, card + tabela ordenável do exterior, responsivo a 375px. Cache busting por `?v=<idg>`.
   - `scripts/verificar_export_web.py`: confere `web/data/` contra os Parquet (totais, votos pós-`agrupar_outros`, as 2 cores recalculadas por `cores.py`, margem, contagens). **152 verificações, 0 falhas** em BR + BA/SP + Belo Campo/BA (caso-limite de `known_issues.csv`), Bom Jesus do Galho/MG e São Paulo/SP.
   - Previews: `docs/img/mapa_preview_*.png` (7 estados, capturados com Playwright headless contra `python -m http.server`).
+- **F2.2 — seleção de candidato ENTREGUE** (D-018):
+  - Seletor de candidato (cor + nome + % nacional, ordenado por votos; "Nenhum" = comportamento idêntico ao do F2) + 2 modos novos: **"Onde venceu"** (só onde ele foi 1º, rampa `escala_margem` dele; `COR_NAO_VENCEU` #cfd6dd a 45% de opacidade no resto) e **"Força"** (todo o mapa pelo % de válidos dele, 0 → percentil 98). Valem em Brasil por UF, Brasil por município e drill-down por UF. Exterior: tabela ganha 2 colunas do candidato e passa a ordenar por ele.
+  - Legenda por modo (no "Força", os ticks mostram o % real); painel com municípios vencidos (total + por UF), UFs vencidas, melhor/pior UF, top 10 por % e por votos (clicáveis), e resultado no exterior. **Estado na URL** (`?camada=&uf=&mun=&modo=&candidato=`, `pushState` na navegação / `replaceState` nos toggles, `popstate` restaura).
+  - Dados novos: `src/eleicao/forca.py` (`pct_por_municipio`, `escala_maxima`/p98 — exterior excluído), `cores.escala_forca`/`escala_forca_neutra`/`rampa_oklab`, `web/data/resultados/forca/cand_<nr>.json` (12, sob demanda), `web/data/resumo_candidatos.json`, `votos_cand` em `br.json`/`exterior.json`, `forca_offsets`/`escala_forca`/`forca_p98` em `meta.json`.
+  - **Tamanho medido**: `web/data/` 7.579,3KB/1.898,2KB gzip → **7.946,8KB/2.012,1KB (+367,5KB / +113,9KB; +4,8% / +6,0%)**. `uf_*.json`, `municipios_br.json` e a geometria **inalterados**. Carga inicial 70,3 → 72,2KB gzip; por candidato selecionado, 3,5–16KB gzip + 4,2KB do resumo (uma vez).
+  - `scripts/verificar_export_web.py` estendido: **391 verificações, 0 falhas** (escalas recalculadas por `cores.py`, p98 e percentuais por posição, fatiamento por UF via `forca_offsets`, `votos_cand` de BR/UF/exterior, municípios vencidos e os dois top 10 do resumo). `pytest -q`: **93 testes passam** (novos: monotonicidade/extremos dos stops, escala neutra compartilhada, p98 sem exterior em `tests/test_forca.py`).
+  - Previews: `docs/img/mapa_preview_f22_*.png` (6 + painel isolado).
 
 ## Em andamento
 - (nada)
@@ -48,6 +55,7 @@
 - `.gitignore`: bloqueio explícito por nome (`data/processed/*secao*`, `data/processed/*zona*`) para os futuros dados grandes de seção/zona (F4), cobrindo também `.csv` (o bloqueio geral `*.parquet` já cobria parquet, mas não csv). Testado com `git check-ignore` em 9 casos — todos corretos.
 
 ## Bloqueios / dúvidas abertas
+- **Decisões de design do F2.2 para o usuário revisar** (detalhe em D-018): (a) os 7 candidatos de cor cinza usam uma escala sequencial neutra ÚNICA, então a ponta escura da rampa deles **não** é a cor do candidato — alternativa seria dar hue artificial a eles só nesse modo; (b) a escala de "Força" satura no p98, o que achata o topo da cauda (ex. Colina/SP, único município com 17,3% de Cury, lê igual a 4,6%); (c) no nível nacional por município o tooltip/painel do modo "Força" mostra só o **%** do candidato, não os votos absolutos (`municipios_br.json` não tem `validos`, e adicioná-lo engordaria o caminho comum em ~33KB brutos).
 - **Divergência residual de BA (3 municípios) sem solução do nosso lado**: confirmada de novo via `scripts/verificar_atualizacoes.py` nesta sessão — o backend do TSE segue servindo uma geração de 04/10 ~21:00 para `ba33693`/`ba34673`/`ba36013`, mesmo sob `--force`. Catalogada em `data/known_issues.csv`; todas as diferenças são < 0,02% dos totais da UF. Rodar `scripts/verificar_atualizacoes.py` periodicamente.
 - Data de publicação dos CSVs de seção/zona 2026 no Dados Abertos: desconhecida. Checar semanalmente.
 - **Ambiente Windows tem 2 outras instalações de conda/miniconda no `PATH` do sistema** (`C:\ProgramData\miniconda3` e `C:\Users\Usuário\miniconda3`, distintas de `C:\Users\Usuário\Miniconda3\envs\eleicao2026` usada pelo projeto) — causou `DeadKernelError` em matplotlib/Jupyter por conflito de DLL (`freetype`/`libpng`); contornado prefixando `PATH` com `...\envs\eleicao2026\Library\bin` antes de rodar o kernel. Não é um problema do projeto, mas vale limpar o `PATH` do sistema ou documentar o workaround se notebooks voltarem a travar.

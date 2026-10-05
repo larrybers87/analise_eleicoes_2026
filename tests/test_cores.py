@@ -3,15 +3,26 @@ from coloraide import Color
 
 from eleicao.cores import (
     COR_OUTROS,
+    ESCALA_NEUTRA_FIM_HEX,
+    FRACOES_ESCALA,
     MARGEM_SATURACAO,
+    N_STOPS_ESCALA,
     NEUTRO_EMPATE_HEX,
     agrupar_outros,
     carregar_paleta,
+    eh_acromatico,
+    escala_forca,
+    escala_forca_neutra,
+    luminosidade_oklab,
     mistura_oklab,
+    rampa_oklab,
     vencedor_margem,
 )
 
 PALETA = carregar_paleta()
+
+ACROMATICOS = sorted(nr for nr, cor in PALETA.items() if eh_acromatico(cor))
+COLORIDOS = sorted(nr for nr, cor in PALETA.items() if not eh_acromatico(cor))
 
 
 def test_paleta_tem_12_candidatos():
@@ -149,3 +160,90 @@ def test_agrupar_outros_rejeita_soma_zero():
 
 def test_cor_outros_e_acromatica():
     assert Color(COR_OUTROS).convert("oklch")[1] < 1e-6
+
+
+# ============ escala sequencial de "força" do candidato (D-018) ==============
+
+
+def test_grupos_da_paleta_batem_com_o_esperado():
+    # 5 candidatos com cor (PT, PL e os 3 "secundario") + 7 cinzas (<1%).
+    assert len(COLORIDOS) == 5
+    assert len(ACROMATICOS) == 7
+    assert set(COLORIDOS) == {13, 22, 70, 14, 55}
+
+
+@pytest.mark.parametrize("nr", sorted(PALETA))
+def test_escala_forca_tem_luminosidade_estritamente_monotonica(nr):
+    # Claro -> escuro, do primeiro ao último stop, SEM "voltar" em nenhum
+    # segmento (não precisa ser linear, mas precisa ser monotônica — é o que
+    # garante que um % maior nunca pareça "mais claro" no mapa).
+    stops = escala_forca(nr, PALETA)
+    assert len(stops) == N_STOPS_ESCALA
+    lums = [luminosidade_oklab(c) for c in stops]
+    assert all(a > b for a, b in zip(lums, lums[1:], strict=False)), lums
+
+
+@pytest.mark.parametrize("nr", sorted(PALETA))
+def test_escala_forca_comeca_na_ancora_clara_neutra(nr):
+    assert escala_forca(nr, PALETA)[0] == NEUTRO_EMPATE_HEX
+
+
+@pytest.mark.parametrize("nr", COLORIDOS)
+def test_escala_forca_termina_na_cor_cheia_do_candidato(nr):
+    # hex IDÊNTICO ao de config/candidatos.yaml — nada de "aproximadamente".
+    assert escala_forca(nr, PALETA)[-1] == PALETA[nr]
+
+
+@pytest.mark.parametrize("nr", ACROMATICOS)
+def test_candidatos_cinza_compartilham_a_mesma_escala_neutra(nr):
+    # Os 7 <1% não ganham rampa própria (uma rampa clara -> cinza-dele seria
+    # invisível e as 7 seriam versões truncadas umas das outras): todos usam a
+    # ESCALA NEUTRA ÚNICA, que termina mais escuro que qualquer um deles.
+    assert escala_forca(nr, PALETA) == escala_forca_neutra()
+    assert escala_forca(nr, PALETA)[-1] != PALETA[nr]
+
+
+def test_escala_neutra_unica_extremos_e_monotonicidade():
+    stops = escala_forca_neutra()
+    assert len(stops) == N_STOPS_ESCALA
+    assert stops[0] == NEUTRO_EMPATE_HEX
+    assert stops[-1] == ESCALA_NEUTRA_FIM_HEX
+    lums = [luminosidade_oklab(c) for c in stops]
+    assert all(a > b for a, b in zip(lums, lums[1:], strict=False)), lums
+    # acromática em toda a extensão (CVD-safe por definição — ver D-014)
+    assert all(Color(c).convert("oklch")[1] < 1e-6 for c in stops)
+
+
+def test_escala_neutra_e_mais_escura_que_qualquer_candidato_cinza():
+    fim = luminosidade_oklab(ESCALA_NEUTRA_FIM_HEX)
+    assert all(fim < luminosidade_oklab(PALETA[nr]) for nr in ACROMATICOS)
+
+
+def test_fracoes_da_escala_vao_de_0_a_1_uniformemente():
+    assert len(FRACOES_ESCALA) == N_STOPS_ESCALA
+    assert FRACOES_ESCALA[0] == 0.0
+    assert FRACOES_ESCALA[-1] == 1.0
+    passos = [b - a for a, b in zip(FRACOES_ESCALA, FRACOES_ESCALA[1:], strict=False)]
+    assert all(p == pytest.approx(passos[0]) for p in passos)
+
+
+def test_rampa_oklab_respeita_as_pontas_exatas():
+    inicio = (0.92, 0.0, 0.0)
+    fim = (0.45, 0.1, -0.1)
+    stops = rampa_oklab(inicio, fim, 5)
+    assert len(stops) == 5
+    assert stops[0] == Color("oklab", list(inicio)).convert("srgb").to_string(hex=True)
+    esperado_fim = Color("oklab", list(fim))
+    if not esperado_fim.in_gamut("srgb"):
+        esperado_fim = esperado_fim.fit("srgb")
+    assert stops[-1] == esperado_fim.convert("srgb").to_string(hex=True)
+
+
+def test_rampa_oklab_rejeita_menos_de_2_stops():
+    with pytest.raises(ValueError):
+        rampa_oklab((0.9, 0, 0), (0.3, 0, 0), 1)
+
+
+def test_escala_forca_rejeita_candidato_fora_da_paleta():
+    with pytest.raises(KeyError):
+        escala_forca(999, PALETA)

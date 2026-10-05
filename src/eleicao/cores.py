@@ -19,6 +19,12 @@ NÃO entram em nenhuma das duas funções — são métricas separadas (ver
 `presidente_t1_*_totais.parquet`); quem monta o dict `votos_por_candidato`
 deve passar só votos válidos por candidato.
 
+Para o modo "candidato selecionado" do mapa (D-018) expõe ainda
+`escala_forca`/`escala_forca_neutra`/`rampa_oklab`: os STOPS hex de uma rampa
+sequencial (claro → cor do candidato) interpolada em OKLab, que o front-end
+só posiciona — nunca recalcula. Ver `N_STOPS_ESCALA` para o motivo de serem
+vários stops e não só as duas pontas.
+
 Também expõe `simular_daltonismo`/`distancia_oklab`, usados no preview
 (`notebooks/01_paleta.ipynb`) para verificar a distinguibilidade de PT/PL e
 dos 3º/4º/5º colocados sob deuteranopia/protanopia, e `agrupar_outros`/
@@ -207,6 +213,102 @@ def vencedor_margem(votos_por_candidato: dict[int, int], paleta: dict[int, str])
     b_final = b_n + r * (b_v - b_n)
 
     return _hex_de_oklab(l_final, a_final, b_final)
+
+
+N_STOPS_ESCALA = 7
+"""Número de stops (cores intermediárias) de uma rampa sequencial exportada.
+
+Motivo de exportar vários stops em vez de só as duas pontas: o `interpolate`
+do MapLibre (e o `linear-gradient` do CSS) interpolam em **sRGB**, não em
+OKLab. Com 2 pontos a rampa sai "suja" (passa por tons barrentos e com
+luminosidade irregular); com 7 pontos pré-calculados em OKLab o erro de cada
+segmento fica pequeno o bastante para não se notar. Mesma lógica já aplicada
+em `ESCALA_MARGEM_PP`/`escala_margem` (`scripts/exportar_web.py`, D-016 item
+4) — aqui ela vale para a escala de "força" (D-018)."""
+
+FRACOES_ESCALA = [i / (N_STOPS_ESCALA - 1) for i in range(N_STOPS_ESCALA)]
+"""Posições dos stops como fração do valor máximo da escala (0 .. 1).
+
+O valor máximo em si é dado (percentil 98 do candidato, ver
+`eleicao.forca.escala_maxima`); quem desenha a legenda/o mapa multiplica
+estas frações pelo máximo para saber em que % cada stop fica."""
+
+ESCALA_NEUTRA_FIM_OKLAB = (0.28, 0.0, 0.0)
+"""Ponta escura da ESCALA SEQUENCIAL NEUTRA ÚNICA, compartilhada pelos 7
+candidatos de cor acromática (grupo `menor` de `config/candidatos.yaml`,
+<1% dos válidos — D-014 item 3).
+
+Por que uma escala só para os 7, e não uma rampa `claro → cinza-dele` por
+candidato: a cor desses candidatos é cinza com `L` entre 0,35 e 0,77 e croma
+ZERO. Uma rampa de `NEUTRO_EMPATE_OKLAB` (L=0,92) até, por exemplo, `#b4b4b4`
+(L=0,77) varre 0,15 de luminosidade e nenhum matiz — é praticamente invisível
+num mapa, e as rampas dos 7 seriam versões truncadas umas das outras (a de
+L=0,35 contendo a de L=0,42 e assim por diante), o que torna impossível ler a
+legenda de um sem confundir com a do outro. Com uma escala única de L=0,92 a
+L=0,28 (faixa de 0,64, mais ampla que a de qualquer candidato colorido), a
+intensidade fica legível para todos os 7; a identidade do candidato vem do
+seletor/legenda, não do matiz. Acromática também por coerência com D-014:
+escala de cinza é CVD-safe por definição."""
+
+ESCALA_NEUTRA_FIM_HEX = _hex_de_oklab(*ESCALA_NEUTRA_FIM_OKLAB)
+
+
+def eh_acromatico(cor_hex: str, tolerancia: float = 2e-3) -> bool:
+    """`True` se a cor tem croma ~0 em OKLCH (cinza puro) — ver `escala_forca`."""
+    return Color(cor_hex).convert("oklch")[1] < tolerancia
+
+
+def rampa_oklab(
+    inicio_oklab: tuple[float, float, float],
+    fim_oklab: tuple[float, float, float],
+    n: int = N_STOPS_ESCALA,
+) -> list[str]:
+    """`n` stops hex interpolados LINEARMENTE EM OKLab entre duas pontas.
+
+    `rampa_oklab(a, b, n)[0]` é exatamente `a` convertido para hex e
+    `[-1]` exatamente `b` — as pontas nunca são aproximadas (os coeficientes
+    de interpolação são 0 e 1 exatos), o que é o que permite exigir, no teste,
+    que o último stop seja idêntico ao hex de `config/candidatos.yaml`.
+    """
+    if n < 2:
+        raise ValueError("uma rampa precisa de pelo menos 2 stops")
+    stops = []
+    for i in range(n):
+        t = i / (n - 1)
+        componentes = [
+            ini + t * (fim - ini) for ini, fim in zip(inicio_oklab, fim_oklab, strict=True)
+        ]
+        stops.append(_hex_de_oklab(*componentes))
+    return stops
+
+
+def escala_forca(nr: int, paleta: dict[int, str], n: int = N_STOPS_ESCALA) -> list[str]:
+    """Stops da escala sequencial de "força" (% dos válidos) do candidato `nr`.
+
+    Vai de `NEUTRO_EMPATE_OKLAB` (0% dos válidos — mesma âncora clara do modo
+    "vencedor + margem", para os dois modos lerem como a mesma família de
+    rampa) até a cor plena do candidato na paleta (valor máximo da escala, ver
+    `eleicao.forca.escala_maxima`; acima disso satura).
+
+    Exceção dos 7 candidatos acromáticos (`eh_acromatico`): devolvem a ESCALA
+    NEUTRA ÚNICA compartilhada (`escala_forca_neutra`) em vez de uma rampa
+    própria — motivo em `ESCALA_NEUTRA_FIM_OKLAB`.
+    """
+    if nr not in paleta:
+        raise KeyError(f"candidato {nr} não está na paleta recebida")
+    cor = paleta[nr]
+    fim = ESCALA_NEUTRA_FIM_OKLAB if eh_acromatico(cor) else _oklab(cor)
+    return rampa_oklab(NEUTRO_EMPATE_OKLAB, fim, n)
+
+
+def escala_forca_neutra(n: int = N_STOPS_ESCALA) -> list[str]:
+    """A escala sequencial neutra única dos candidatos acromáticos (D-018)."""
+    return rampa_oklab(NEUTRO_EMPATE_OKLAB, ESCALA_NEUTRA_FIM_OKLAB, n)
+
+
+def luminosidade_oklab(cor_hex: str) -> float:
+    """`L` de OKLab de uma cor hex (0 = preto, 1 = branco). Usado nos testes de rampa."""
+    return _oklab(cor_hex)[0]
 
 
 def agrupar_outros(

@@ -38,12 +38,29 @@
         <span class="longo">Brasil por município</span><span class="curto">Município</span>
       </button>
     </div>
-    <div class="grupo" role="group" aria-label="Modo de cor">
+    <div class="grupo" id="grupo-modo" role="group" aria-label="Modo de cor">
       <button type="button" data-modo="mistura" class="ativo" title="Mistura ponderada pelos votos">
         Mistura
       </button>
       <button type="button" data-modo="margem" title="Cor do vencedor, intensidade pela margem">
         <span class="longo">Vencedor + margem</span><span class="curto">Margem</span>
+      </button>
+    </div>
+    <div class="grupo grupo-sel">
+      <label for="candidato">Candidato</label>
+      <i id="cor-candidato" hidden aria-hidden="true"></i>
+      <select id="candidato" aria-label="Destacar um candidato no mapa">
+        <option value="">Nenhum</option>
+      </select>
+    </div>
+    <div class="grupo" id="grupo-modo-cand" role="group" aria-label="Modo do candidato" hidden>
+      <button type="button" data-cmodo="venceu" class="ativo"
+              title="Só os lugares em que ele foi 1º colocado, na cor dele pela margem">
+        <span class="longo">Onde venceu</span><span class="curto">Venceu</span>
+      </button>
+      <button type="button" data-cmodo="forca"
+              title="Todos os lugares, pela porcentagem de votos válidos dele">
+        <span class="longo">Força (% válidos)</span><span class="curto">Força</span>
       </button>
     </div>
     <button type="button" id="btn-voltar" hidden>← Voltar</button>

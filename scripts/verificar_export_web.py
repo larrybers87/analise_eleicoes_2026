@@ -12,7 +12,12 @@ Confere:
   - soma dos votos do JSON == `validos` do Parquet;
   - cores dos 2 modos == recálculo direto por `src/eleicao/cores.py`;
   - margem em p.p. == recálculo a partir dos votos do Parquet;
-  - contagem de municípios por UF e do índice nacional.
+  - contagem de municípios por UF e do índice nacional;
+  - F2.2 (candidato selecionado): stops de `escala_forca`/`escala_margem` ==
+    recálculo por `cores.py`; `forca/cand_<nr>.json` (tamanho, ordem, p98 e os
+    percentuais, por posição) == recálculo por `eleicao.forca`; o fatiamento
+    por UF via `meta.forca_offsets`; `votos_cand` de UF/Brasil/exterior; e os
+    números de `resumo_candidatos.json` (municípios vencidos, top 10, exterior).
 
 Uso:
     python scripts/verificar_export_web.py
@@ -31,10 +36,12 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from eleicao import config  # noqa: E402
+from eleicao import config, forca  # noqa: E402
 from eleicao.cores import (  # noqa: E402
     agrupar_outros,
     carregar_paleta,
+    escala_forca,
+    escala_forca_neutra,
     mistura_oklab,
     vencedor_margem,
 )
@@ -129,6 +136,182 @@ def conferir(f: Falhas, rotulo: str, reg: dict, linha: pd.Series, votos: dict[in
     f.checar(reg["margem_pp"] == margem, f"{rotulo}.margem_pp", margem, reg["margem_pp"])
 
 
+def conferir_f22(
+    f: Falhas,
+    paleta: dict[int, str],
+    mun_tot: pd.DataFrame,
+    mun_cand: pd.DataFrame,
+    uf_cand: pd.DataFrame,
+    br_cand: pd.DataFrame,
+    amostra_mun: list[str],
+) -> None:
+    """Checagens do F2.2 (D-018): escalas, `forca/*.json`, `votos_cand`, resumo."""
+    meta = json.loads((WEB_DATA / "meta.json").read_text("utf-8"))
+    br_json = json.loads((WEB_DATA / "resultados" / "br.json").read_text("utf-8"))
+    resumo = json.loads((WEB_DATA / "resumo_candidatos.json").read_text("utf-8"))
+    ext_json = json.loads((WEB_DATA / "exterior.json").read_text("utf-8"))
+
+    pct = forca.pct_por_municipio(mun_cand, mun_tot)
+    ordem_ibge = list(pct.index)
+
+    # --- 1. stops das rampas, recalculados por cores.py ----------------------
+    for nr in sorted(paleta):
+        f.checar(
+            meta["escala_forca"][str(nr)] == escala_forca(nr, paleta),
+            f"meta.escala_forca[{nr}]",
+            escala_forca(nr, paleta),
+            meta["escala_forca"][str(nr)],
+        )
+    f.checar(
+        meta["escala_forca_neutra"] == escala_forca_neutra(),
+        "meta.escala_forca_neutra",
+        escala_forca_neutra(),
+        meta["escala_forca_neutra"],
+    )
+
+    # --- 2. ordem canônica e votos_cand --------------------------------------
+    votos_br = dict(
+        zip(br_cand["nr_candidato"].astype(int), br_cand["votos"].astype(int), strict=True)
+    )
+    ordem = [nr for nr, _ in sorted(votos_br.items(), key=lambda it: it[1], reverse=True)]
+    f.checar(
+        meta["ordem_candidatos"] == ordem, "meta.ordem_candidatos", ordem, meta["ordem_candidatos"]
+    )
+    f.checar(
+        br_json["br"]["votos_cand"] == [votos_br[nr] for nr in ordem],
+        "br.votos_cand",
+        [votos_br[nr] for nr in ordem],
+        br_json["br"]["votos_cand"],
+    )
+    for item in br_json["ufs"]:
+        sub = uf_cand[uf_cand["uf"] == item["uf"]]
+        esperado = dict(zip(sub["nr_candidato"].astype(int), sub["votos"].astype(int), strict=True))
+        f.checar(
+            item["votos_cand"] == [esperado.get(nr, 0) for nr in ordem],
+            f"br.ufs[{item['uf']}].votos_cand",
+            [esperado.get(nr, 0) for nr in ordem],
+            item["votos_cand"],
+        )
+
+    # --- 3. forca/cand_<nr>.json: tamanho, ordem, p98 e valores --------------
+    posicoes = {ibge: i for i, ibge in enumerate(ordem_ibge)}
+    for nr in sorted(paleta):
+        obj = json.loads((WEB_DATA / "resultados" / "forca" / f"cand_{nr}.json").read_text("utf-8"))
+        f.checar(obj["n"] == len(ordem_ibge), f"forca[{nr}].n", len(ordem_ibge), obj["n"])
+        f.checar(
+            len(obj["pct"]) == len(ordem_ibge),
+            f"forca[{nr}].len(pct)",
+            len(ordem_ibge),
+            len(obj["pct"]),
+        )
+        esperado_p98 = round(forca.escala_maxima(pct[nr]), 4)
+        f.checar(obj["p98"] == esperado_p98, f"forca[{nr}].p98", esperado_p98, obj["p98"])
+        f.checar(
+            meta["forca_p98"][str(nr)] == esperado_p98,
+            f"meta.forca_p98[{nr}]",
+            esperado_p98,
+            meta["forca_p98"][str(nr)],
+        )
+        for ibge in amostra_mun:
+            i = posicoes[ibge]
+            esp = round(float(pct.loc[ibge, nr]), 3)
+            esp = 0 if esp == 0 else esp
+            f.checar(obj["pct"][i] == esp, f"forca[{nr}].pct[{ibge}]", esp, obj["pct"][i])
+
+    f.checar(
+        ordem_ibge == sorted(ordem_ibge, key=int),
+        "forca.ordem_crescente",
+        "cd_mun_ibge crescente",
+        "fora de ordem",
+    )
+
+    # --- 4. fatiamento por UF (meta.forca_offsets) ---------------------------
+    for sigla, base in meta["forca_offsets"].items():
+        uf_json = json.loads(
+            (WEB_DATA / "resultados" / "uf" / f"uf_{sigla}.json").read_text("utf-8")
+        )
+        ibges = sorted((str(m["cd_mun_ibge"]) for m in uf_json["municipios"]), key=int)
+        fatia = ordem_ibge[base : base + len(ibges)]
+        f.checar(fatia == ibges, f"forca_offsets[{sigla}]", ibges[:3], fatia[:3])
+
+    # --- 5. resumo_candidatos.json -------------------------------------------
+    mun_br = mun_tot[~mun_tot["eh_exterior"]]
+    chave = {
+        str(i): (u, c)
+        for i, u, c in zip(mun_br["cd_mun_ibge"], mun_br["uf"], mun_br["cd_mun_tse"], strict=True)
+    }
+    votos_mun: dict[tuple[str, str], dict[int, int]] = {}
+    for (u, c), grupo in mun_cand.groupby(["uf", "cd_mun_tse"], sort=False):
+        votos_mun[(u, c)] = dict(
+            zip(grupo["nr_candidato"].astype(int), grupo["votos"].astype(int), strict=True)
+        )
+    vencidos: dict[int, int] = dict.fromkeys(paleta, 0)
+    for k in chave.values():
+        v = votos_mun.get(k, {})
+        if v:
+            vencidos[max(v.items(), key=lambda it: it[1])[0]] += 1
+    for nr in sorted(paleta):
+        r = resumo["candidatos"][str(nr)]
+        f.checar(
+            r["municipios_vencidos"] == vencidos[nr],
+            f"resumo[{nr}].municipios_vencidos",
+            vencidos[nr],
+            r["municipios_vencidos"],
+        )
+        f.checar(
+            sum(r["municipios_vencidos_por_uf"].values()) == vencidos[nr],
+            f"resumo[{nr}].soma_por_uf",
+            vencidos[nr],
+            sum(r["municipios_vencidos_por_uf"].values()),
+        )
+        # top 10 por %: tem que bater com o recálculo direto do parquet
+        esperado_top = [str(ibge) for ibge in pct[nr].sort_values(ascending=False).head(10).index]
+        obtido_top = [linha[0] for linha in r["top_pct"]]
+        f.checar(obtido_top == esperado_top, f"resumo[{nr}].top_pct", esperado_top, obtido_top)
+        # top 10 por votos absolutos
+        serie_votos = pd.Series(
+            {ibge: votos_mun.get(chave[ibge], {}).get(nr, 0) for ibge in ordem_ibge}
+        )
+        esperado_votos = list(serie_votos.sort_values(ascending=False).head(10).index)
+        obtido_votos = [linha[0] for linha in r["top_votos"]]
+        f.checar(
+            obtido_votos == esperado_votos,
+            f"resumo[{nr}].top_votos",
+            esperado_votos,
+            obtido_votos,
+        )
+        # exterior
+        sub = uf_cand[(uf_cand["uf"] == config.UF_EXTERIOR) & (uf_cand["nr_candidato"] == nr)]
+        esperado_ext = int(sub["votos"].iloc[0]) if len(sub) else 0
+        f.checar(
+            r["exterior"]["votos"] == esperado_ext,
+            f"resumo[{nr}].exterior.votos",
+            esperado_ext,
+            r["exterior"]["votos"],
+        )
+
+    # --- 6. votos_cand do exterior (por local) -------------------------------
+    soma_ext = [0] * len(ordem)
+    for local in ext_json["locais"]:
+        if local["votos_cand"]:
+            for i, v in enumerate(local["votos_cand"]):
+                soma_ext[i] += v
+    esperado_ext_total = [
+        int(
+            uf_cand[(uf_cand["uf"] == config.UF_EXTERIOR) & (uf_cand["nr_candidato"] == nr)][
+                "votos"
+            ].sum()
+        )
+        for nr in ordem
+    ]
+    f.checar(
+        soma_ext == esperado_ext_total,
+        "exterior.soma(votos_cand)",
+        esperado_ext_total,
+        soma_ext,
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--municipios", nargs="*", default=PADRAO_MUNICIPIOS, help="uf:cd_mun_tse")
@@ -220,6 +403,17 @@ def main() -> int:
         int(uf_tot.loc[config.UF_EXTERIOR, "validos"]),
         soma_ext,
     )
+
+    # F2.2 — candidato selecionado
+    print("F2.2 (escalas, força por município, votos_cand, resumo)")
+    amostra_ibge = []
+    for item in args.municipios:
+        sigla, cd = item.split(":")
+        linha = mun_tot[(mun_tot["uf"] == sigla) & (mun_tot["cd_mun_tse"] == cd)]
+        if len(linha) and not bool(linha["eh_exterior"].iloc[0]):
+            amostra_ibge.append(str(linha["cd_mun_ibge"].iloc[0]))
+    amostra_ibge += ["3550308", "3157336", "1100015"]  # SP, menor município, 1º da ordem
+    conferir_f22(f, paleta, mun_tot, mun_cand, uf_cand, br_cand, sorted(set(amostra_ibge)))
 
     print(f"\n{f.ok} verificações OK, {len(f.itens)} falhas")
     for item in f.itens:

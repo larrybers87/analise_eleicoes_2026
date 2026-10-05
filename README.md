@@ -97,6 +97,11 @@ cd web && python -m http.server 8765
 # abra http://127.0.0.1:8765/
 ```
 
+O estado da visão fica na URL (`?camada=mun&uf=mg&mun=3106200&modo=forca&candidato=13`),
+então qualquer visão é linkável: nível (Brasil por UF / por município / UF),
+município selecionado, modo de cor (`mistura`, `margem`, `venceu`, `forca`) e
+candidato destacado.
+
 Não abra `web/index.html` direto pelo `file://` — o `fetch` dos dados é bloqueado
 por CORS. Em produção, qualquer HTTP estático serve (GitHub Pages inclusive).
 
