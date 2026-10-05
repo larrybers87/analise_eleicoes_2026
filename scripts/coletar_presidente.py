@@ -16,6 +16,20 @@ que `--force`). Log de contagens em `data/raw/coleta_<eleicao>.log`.
 
 Uso:
     python scripts/coletar_presidente.py --eleicao 6257 [--force]
+
+Para rebaixar só uma lista específica de arquivos (ex. depois de um
+diagnóstico apontar divergência em alguns poucos municípios/UFs — NUNCA
+"varrer tudo de novo" por precaução), use `--apenas` com `--force`:
+
+    python scripts/coletar_presidente.py --force --apenas uf:ba,uf:mg,mun:ba:33693,mun:mg:41556
+
+Formato de `--apenas` (lista separada por vírgula, sem espaços):
+  - `uf:<sigla>` — arquivo de UF (ex. `uf:ba`, `uf:zz`).
+  - `mun:<sigla_uf>:<cd_mun>` — arquivo de município, UF explícita porque o
+    código de 5 dígitos sozinho não identifica a UF (ex. `mun:ba:33693`).
+  - `br` — arquivo do Brasil.
+Qualquer entrada que não exista no config é ignorada com aviso (nunca gera
+URL por adivinhação — mesma regra anti-bloqueio de sempre).
 """
 
 from __future__ import annotations
@@ -93,6 +107,53 @@ def _montar_itens(eleicao: int, config_municipios: dict) -> list[Item]:
                 )
             )
     return itens
+
+
+def _parsear_apenas(especificacao: str) -> set[tuple[str, str | None, str | None]]:
+    """Parseia `--apenas` em um conjunto de chaves `(tipo, uf, cd_mun)`.
+
+    Não valida contra o config aqui (feito em `_filtrar_itens`, que já tem a
+    lista de itens reais) — só parseia a sintaxe.
+    """
+    chaves: set[tuple[str, str | None, str | None]] = set()
+    for token in especificacao.split(","):
+        token = token.strip().lower()
+        if not token:
+            continue
+        partes = token.split(":")
+        if partes[0] == "br" and len(partes) == 1:
+            chaves.add(("br", None, None))
+        elif partes[0] == "uf" and len(partes) == 2:
+            chaves.add(("uf", partes[1], None))
+        elif partes[0] == "mun" and len(partes) == 3:
+            chaves.add(("mun", partes[1], partes[2]))
+        else:
+            raise ValueError(
+                f"token inválido em --apenas: {token!r} "
+                "(esperado 'br', 'uf:<sigla>' ou 'mun:<sigla_uf>:<cd_mun>')"
+            )
+    return chaves
+
+
+def _filtrar_itens(
+    itens: list[Item], chaves: set[tuple[str, str | None, str | None]]
+) -> list[Item]:
+    encontrados: list[Item] = []
+    for item in itens:
+        chave = (item.tipo, item.uf, item.cd_mun)
+        if chave in chaves:
+            encontrados.append(item)
+
+    chaves_encontradas = {(i.tipo, i.uf, i.cd_mun) for i in encontrados}
+    faltando = chaves - chaves_encontradas
+    for tipo, uf, cd_mun in faltando:
+        logger.warning(
+            "entrada de --apenas não encontrada no config, ignorada: tipo=%s uf=%s cd_mun=%s",
+            tipo,
+            uf,
+            cd_mun,
+        )
+    return encontrados
 
 
 class _Contadores:
@@ -193,9 +254,11 @@ async def _worker(
         fila.task_done()
 
 
-async def main(eleicao: int, force: bool) -> int:
+async def main(eleicao: int, force: bool, apenas: str | None) -> int:
     caminho_log = _configurar_log(eleicao)
-    logger.info("=== início da coleta: eleição %d (force=%s) ===", eleicao, force)
+    logger.info(
+        "=== início da coleta: eleição %d (force=%s, apenas=%s) ===", eleicao, force, apenas
+    )
 
     async with TseClient() as cliente:
         caminho_cfg = config.caminho_config_municipios(eleicao)
@@ -204,6 +267,10 @@ async def main(eleicao: int, force: bool) -> int:
         config_municipios = json.loads(local_cfg.read_text(encoding="utf-8"))
 
         itens = _montar_itens(eleicao, config_municipios)
+        if apenas:
+            chaves = _parsear_apenas(apenas)
+            itens = _filtrar_itens(itens, chaves)
+            logger.info("--apenas restringiu a coleta a %d item(ns)", len(itens))
         logger.info("total de itens a processar (BR + UFs + municípios): %d", len(itens))
 
         fila: asyncio.Queue[Item] = asyncio.Queue()
@@ -261,5 +328,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "--force", action="store_true", help="rebaixa mesmo se o arquivo já existir em data/raw/"
     )
+    parser.add_argument(
+        "--apenas",
+        default=None,
+        help=(
+            "rebaixa só uma lista específica (separada por vírgula) de "
+            "'br', 'uf:<sigla>' ou 'mun:<sigla_uf>:<cd_mun>' — use com --force. "
+            "Ex.: uf:ba,uf:mg,mun:ba:33693"
+        ),
+    )
     args = parser.parse_args()
-    sys.exit(asyncio.run(main(args.eleicao, args.force)))
+    sys.exit(asyncio.run(main(args.eleicao, args.force, args.apenas)))

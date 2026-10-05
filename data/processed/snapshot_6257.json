@@ -1,0 +1,24 @@
+{
+  "eleicao": 6257,
+  "descricao": "Identifica a qual geração do backend do TSE os Parquet de data/processed/presidente_t1_* correspondem. O TSE pode atualizar resultados depois deste snapshot (recursos, decisões judiciais, totalização ainda em andamento) — ver docs/DADOS.md.",
+  "br": {
+    "idg": "2784350",
+    "dg": "05/10/2026",
+    "hg": "02:59:31",
+    "dt_totalizacao": "05/10/2026",
+    "ht_totalizacao": "02:58:39",
+    "and": "p",
+    "tf": "n",
+    "md": "s",
+    "nota_and_vs_tf": "and='p' é o andamento OPERACIONAL do recebimento de boletins (ainda parcial, 41 seções 'não instaladas', ver docs/DADOS.md); tf='n' é a totalização FINAL JUDICIAL (nenhum juiz eleitoral finalizou a eleição ainda). Os dois são independentes: um dia tf poderá virar 's' mesmo que and continue refletindo pendências residuais de seções isoladas (ex. exterior)."
+  },
+  "coleta_completa_etapa2": {
+    "inicio": "2026-10-05T11:40:49",
+    "fim": "2026-10-05T11:51:22",
+    "descricao": "Coleta de todos os 5786 arquivos (BR + 28 UF + 5757 municípios) via scripts/coletar_presidente.py --eleicao 6257."
+  },
+  "atualizacao_dirigida_ba_mg": {
+    "em": "2026-10-05T12:24:04",
+    "descricao": "Rebaixa forçada (--force --apenas) de uf:ba, uf:mg e dos 11 municípios divergentes (ver scripts/diagnostico_ba_mg.py e docs/DADOS.md). MG convergiu (geração nova, and=f, snt=0 em todos). BA não convergiu — os 3 municípios continuam servindo uma geração de 04/10/2026 ~21:00 (idg~1.88M), mesmo após --force; divergência residual catalogada em data/known_issues.csv."
+  }
+}

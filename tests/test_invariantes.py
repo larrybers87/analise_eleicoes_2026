@@ -61,6 +61,22 @@ def config_municipios() -> dict:
     return json.loads(Path(caminho).read_text(encoding="utf-8"))
 
 
+CAMINHO_KNOWN_ISSUES = config.RAIZ / "data" / "known_issues.csv"
+
+
+@pytest.fixture(scope="module")
+def known_issues() -> pd.DataFrame:
+    """Catálogo de divergências reais do TSE já investigadas e sem explicação/conserto.
+
+    Ver `docs/DADOS.md` (Armadilhas) e `scripts/diagnostico_ba_mg.py`. Qualquer
+    divergência NÃO catalogada aqui ainda deve falhar o teste — só as
+    exatamente listadas são toleradas.
+    """
+    if not CAMINHO_KNOWN_ISSUES.exists():
+        return pd.DataFrame(columns=["uf", "cd_mun_tse", "campo", "diferenca"])
+    return pd.read_csv(CAMINHO_KNOWN_ISSUES, dtype={"cd_mun_tse": "string"}, keep_default_na=False)
+
+
 def test_nenhum_municipio_do_config_ficou_sem_linha(mun_totais, config_municipios):
     esperados = {
         f"{abrangencia['cd']}{m['cd']}"
@@ -85,8 +101,18 @@ def test_contagem_exterior_e_brasil(mun_totais):
     assert len(brasil) == 5571
 
 
-def test_soma_municipios_por_uf_fecha_com_arquivo_oficial_da_uf(mun_totais, uf_totais):
-    """Soma dos municípios de cada UF == arquivo oficial da UF (eleitorado/comparecimento/etc.)."""
+def test_soma_municipios_por_uf_fecha_com_arquivo_oficial_da_uf(
+    mun_totais, uf_totais, known_issues
+):
+    """Soma dos municípios de cada UF == arquivo oficial da UF, exceto divergências catalogadas.
+
+    Tolera SOMENTE as divergências listadas em `data/known_issues.csv`
+    (investigadas, sem explicação/conserto no lado do TSE — ver
+    `docs/DADOS.md`). Qualquer divergência nova, ou qualquer divergência
+    catalogada que tenha desaparecido (TSE corrigiu), falha o teste — nos
+    dois casos o catálogo precisa ser revisado manualmente, não é
+    atualizado automaticamente.
+    """
     agregado = mun_totais.groupby("uf", as_index=False).agg(
         eleitorado=("eleitorado", "sum"),
         comparecimento=("comparecimento", "sum"),
@@ -103,21 +129,41 @@ def test_soma_municipios_por_uf_fecha_com_arquivo_oficial_da_uf(mun_totais, uf_t
         suffixes=("_soma_mun", "_oficial_uf"),
     )
 
-    divergencias = []
+    observadas: set[tuple[str, str, int]] = set()
     for campo in ("eleitorado", "comparecimento", "abstencao", "validos", "brancos", "nulos_tvn"):
         dif = comparacao[f"{campo}_soma_mun"] - comparacao[f"{campo}_oficial_uf"]
         for uf, valor in zip(comparacao["uf"], dif, strict=True):
             if valor != 0:
-                divergencias.append((uf, campo, int(valor)))
+                observadas.add((uf, campo, int(valor)))
 
-    assert not divergencias, (
-        f"{len(divergencias)} divergência(s) soma-municípios vs UF oficial "
-        f"(uf, campo, soma_mun - oficial_uf): {divergencias[:30]}"
+    campos_totais = {
+        "eleitorado",
+        "comparecimento",
+        "abstencao",
+        "validos",
+        "brancos",
+        "nulos_tvn",
+    }
+    catalogadas = {
+        (row.uf, row.campo, int(row.diferenca))
+        for row in known_issues.itertuples()
+        if row.campo in campos_totais
+    }
+
+    novas = observadas - catalogadas
+    resolvidas = catalogadas - observadas
+    assert not novas and not resolvidas, (
+        f"catálogo data/known_issues.csv desatualizado — "
+        f"{len(novas)} divergência(s) NOVA(s) não catalogada(s): {sorted(novas)[:20]}; "
+        f"{len(resolvidas)} divergência(s) catalogada(s) que NÃO se repetiu/repetiram "
+        f"(TSE pode ter corrigido — revisar o CSV): {sorted(resolvidas)[:20]}"
     )
 
 
-def test_soma_municipios_por_uf_fecha_votos_por_candidato(mun_candidatos, uf_candidatos):
-    """Soma de votos por candidato nos municípios de cada UF == arquivo oficial da UF."""
+def test_soma_municipios_por_uf_fecha_votos_por_candidato(
+    mun_candidatos, uf_candidatos, known_issues
+):
+    """Soma de votos/candidato nos municípios de cada UF == arquivo oficial, exceto catalogadas."""
     agregado = (
         mun_candidatos.groupby(["uf", "nr_candidato"], as_index=False)["votos"]
         .sum()
@@ -135,10 +181,26 @@ def test_soma_municipios_por_uf_fecha_votos_por_candidato(mun_candidatos, uf_can
     )
 
     comparacao["diferenca"] = comparacao["votos_soma_mun"] - comparacao["votos_oficial_uf"]
-    divergentes = comparacao[comparacao["diferenca"] != 0]
-    assert divergentes.empty, (
-        f"{len(divergentes)} divergência(s) de votos por candidato (soma municípios vs UF "
-        f"oficial): {divergentes[['uf', 'nr_candidato', 'diferenca']].to_dict('records')[:30]}"
+    observadas = {
+        (row.uf, int(row.nr_candidato), int(row.diferenca))
+        for row in comparacao.itertuples()
+        if row.diferenca != 0
+    }
+
+    catalogadas: set[tuple[str, int, int]] = set()
+    for row in known_issues.itertuples():
+        if not row.campo.startswith("votos_candidato_"):
+            continue
+        nr_candidato = int(row.campo.removeprefix("votos_candidato_"))
+        catalogadas.add((row.uf, nr_candidato, int(row.diferenca)))
+
+    novas = observadas - catalogadas
+    resolvidas = catalogadas - observadas
+    assert not novas and not resolvidas, (
+        f"catálogo data/known_issues.csv desatualizado — "
+        f"{len(novas)} divergência(s) NOVA(s) de candidato não catalogada(s): "
+        f"{sorted(novas)[:20]}; {len(resolvidas)} divergência(s) catalogada(s) que NÃO se "
+        f"repetiu/repetiram (TSE pode ter corrigido — revisar o CSV): {sorted(resolvidas)[:20]}"
     )
 
 

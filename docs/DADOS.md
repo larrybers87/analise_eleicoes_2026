@@ -142,6 +142,8 @@ da spec.
 - `tf` (Totalização Final, **judicial** — juiz declara eleitos/não eleitos) é diferente de `and` (andamento **operacional** do recebimento de boletins) — campos distintos no root do EA20, confundidos na primeira versão desta documentação. `tf="n"` em toda a amostra de 05/10/2026 (nenhuma abrangência teve finalização judicial ainda, nem mesmo as que já são `and="f"`).
 - **Todos os campos percentuais usam vírgula como separador decimal, inclusive os `p<campo>n`** (ex. `pvapn: "57,499675335"`, `pcn: "80,280790419"`). A entrada original desta tabela (etapa 1) dizia que `p<campo>n` usava ponto — erro, baseado em amostra que coincidentemente não tinha parte decimal. Corrigido na etapa 2 (`src/eleicao/parse_ea20.py`, função `_float`: faz `valor.replace(",", ".")` antes de `float()`). Atenção ao escrever qualquer novo parser/notebook que leia esses campos.
 - Config de municípios tem alguns nomes com acentuação corrompida quando lidos por `cat`/terminal Windows com codepage errado (ex. `ACREL�NDIA`) — **não é problema do arquivo** (é UTF-8 válido; confirmado abrindo com `encoding="utf-8"` em Python), é só exibição no console.
+- **Arquivos de UF e de município podem estar em gerações diferentes do backend do TSE** (campos `dg`/`hg`/`idg` do cabeçalho do EA20 divergem entre o arquivo de um município e o arquivo da UF que o contém, mesmo pedindo os dois quase ao mesmo tempo). Confirmado investigando BA/MG (ver "Divergências reais" item 1): 11 municípios estavam servindo uma geração de **04/10/2026 ~21:00** (`idg`~1,8 milhão) enquanto suas UFs já estavam em **05/10/2026 ~02:59** (`idg`~2,79 milhão). Rebaixar com `--force` resolveu para MG (nova geração, convergiu) mas **não** para BA (o servidor respondeu com os mesmos bytes antigos de novo) — ou seja, `--force` não é garantia de pegar a geração mais nova; o CDN/backend pode genuinamente não ter propagado a atualização para aquele recurso específico ainda. **Lição para rotina de atualização futura**: comparar `idg` de município vs UF a cada atualização; se divergente, `--force` só nesse item (nunca "varrer tudo de novo" — risco de bloqueio); se persistir divergente após `--force`, tratar como pendência conhecida do TSE e catalogar em `data/known_issues.csv`, não insistir em loop.
+- **O TSE pode atualizar resultados depois de qualquer snapshot que coletarmos** — por decisões judiciais, recursos, ou simplesmente a totalização operacional (`and`) continuar avançando. `data/processed/snapshot_6257.json` registra a geração exata do arquivo BR (`idg`/`dg`/`hg`) e quando a coleta completa (etapa 2) e a atualização dirigida de BA/MG foram feitas — é a "versão" do TSE que os Parquet de `data/processed/` representam. Reforça a distinção já documentada entre `and` (andamento **operacional**, pode variar a cada totalização) e `tf` (totalização **final judicial**, só muda quando um juiz eleitoral decide) — um snapshot com `tf="n"` (como o nosso) é, por definição, **provisório**: mesmo abrangências com `and="f"` podem ter seus números revistos depois se `tf` ainda não é `"s"`.
 
 ### Divergências reais encontradas na coleta completa (05/10/2026, 1º turno)
 
@@ -156,46 +158,55 @@ explica o comportamento exatamente. Reescrevemos os testes correspondentes
 (ver "Confronto com a especificação oficial"); agora **21 testes, 19 passam,
 2 falham** — só o item 1 abaixo (genuinamente um dado inconsistente do TSE).
 
-1. **[DIVERGÊNCIA REAL DO TSE, confirmada, ainda sem explicação definitiva]
-   UF marca `and="f"` (`s.snt==0` na UF) mas 11 municípios dentro dela ainda
-   têm `s.snt>0` (`and="p"`)**. Afeta 2 UFs:
-   - **BA** (UF: `extra_s_snt=0`, `and="f"`): municípios `33693` BELO CAMPO
-     (4 seções com `snt>0`, 54/58 totalizadas), `34673` CONCEIÇÃO DO COITÉ
-     (1 seção, 186/187), `36013` ITAETÉ (1 seção, 39/40) — soma `snt`
-     municipal = 6, mas a UF diz `snt=0`.
-   - **MG** (UF: `extra_s_snt=0`, `and="f"`): municípios `41556` BOM JESUS DO
-     GALHO, `41696` BOTUMIRIM, `42005` CURRAL DE DENTRO, `46078` IJACI,
-     `47198` JOAÍMA, `40622` ROSÁRIO DA LIMEIRA, `51977` SANTO ANTÔNIO DO
-     AMPARO, `53171` SENADOR MODESTINO GONÇALVES — soma `snt` municipal = 36,
-     UF diz `snt=0`.
-   - Efeito: soma dos municípios ≠ arquivo oficial da UF para
-     `comparecimento`/`abstencao`/`validos`/`brancos`/`nulos_tvn` (não para
-     `eleitorado`, que é fixo). BA: comparecimento -1.322, abstenção -334,
-     válidos -1.244, brancos -29, nulos -49. MG: comparecimento -8.413,
-     abstenção -3.366, válidos -7.908, brancos -138, nulos -367. Por
-     candidato (soma município < UF oficial), maior efeito em `13` (Lula:
-     BA -967, MG -4.898) e `22` (PL/Bolsonaro: BA -236, MG -2.600).
-   - **Não é timing da nossa coleta**: o arquivo BR (cacheado da etapa 1,
-     gerado 05/10 02:58:39) bate **exatamente, voto a voto**, com a soma das
-     28 UFs baixadas ~9h depois (05/10 11:40), nos 6 campos testados — ou
-     seja, a apuração nacional não avançou nesse intervalo. **Correção**: o
-     pendente nacional da BR (`s.sni=41`, seções **não instaladas**) não é
-     a mesma coisa que o pendente de BA/MG (`s.snt=42` somado nos 11
-     municípios, seções **não totalizadas**) — são dois buckets
-     independentes da spec (`sni` ≠ `snt`, ver "Confronto com a
-     especificação oficial"); o `sni=41` da BR é inteiramente explicado
-     pelos 40 municípios `zz` do item 2 abaixo (41 seções, uma delas em
-     SARAJEVO que tem 2). O `snt=42` de BA/MG **não aparece em nenhum
-     campo agregado da BR** que verificamos (`extra_s_snt` da própria BR é
-     `0`) — ele só existe dentro dos arquivos de município, e o agregado de
-     UF (BA/MG) já o ignora (`extra_s_snt=0` na UF) mesmo a soma dos seus
-     municípios dizendo `42`. Essa lacuna de agregação (UF não refletindo
-     o `snt` dos seus próprios municípios) é do próprio TSE — a spec não
-     prevê nem explica essa inconsistência; é um bug ou efeito de cache do
-     backend do TSE, não um comportamento documentado. Não investigamos
-     mais a fundo (fora do escopo); se refizéssemos a coleta destes 11
-     municípios agora (`--force`), é provável que já estejam `and="f"` e a
-     soma feche.
+1. **[DIVERGÊNCIA REAL DO TSE — investigada a fundo em 05/10/2026 12:24,
+   resultado MISTO: MG convergiu, BA continua divergente]** UF marcava
+   `and="f"` (`s.snt==0` na UF) mas 11 municípios dentro dela ainda tinham
+   `s.snt>0` (`and="p"`). Afetava 2 UFs (BA: 3 municípios; MG: 8 — ver lista
+   completa na versão anterior desta entrada, no histórico do git).
+   **Diagnóstico de geração** (`scripts/diagnostico_ba_mg.py`, compara
+   `dg`/`hg`/`idg` do município com os da UF): os 11 municípios divergentes
+   tinham `dg`/`hg`/`idg` de **04/10/2026 ~20:54–21:01** (noite da eleição,
+   `idg` ~1,83–1,89 milhão), enquanto as UFs BA/MG já estavam em
+   `dg`/`hg`/`idg` de **05/10/2026 ~02:59** (`idg` ~2,79 milhão) — ou seja,
+   os arquivos de município estavam servindo uma **geração muito mais
+   antiga** do backend do TSE do que o arquivo agregado da própria UF
+   (confirma a hipótese de cache desatualizado/não propagado por
+   município, não um erro de agregação por si só).
+   - **Ação**: `python scripts/coletar_presidente.py --force --apenas
+     uf:ba,uf:mg,mun:ba:33693,mun:ba:34673,mun:ba:36013,mun:mg:41556,mun:mg:41696,mun:mg:42005,mun:mg:46078,mun:mg:47198,mun:mg:40622,mun:mg:51977,mun:mg:53171`
+     (13 arquivos, 0 404/0 erro, ~1,3s a ~10 req/s — ver
+     `data/raw/coleta_6257.log`).
+   - **MG convergiu totalmente**: os 8 municípios voltaram com nova geração
+     (`dg`=05/10/2026 11:46, `idg`~2,82 milhão — mais recente até que a UF
+     tinha antes), `and="f"`, `snt=0`, `si==ts` em todos. A própria UF de MG
+     também avançou de geração (`idg` 2789926→2824258) ao ser rebaixada. Os
+     testes de soma município↔UF para MG fecham perfeitamente agora.
+   - **BA NÃO convergiu**: os 3 municípios voltaram com **exatamente os
+     mesmos bytes** de antes (`dg`=04/10/2026 21:01, `idg`~1,88 milhão,
+     `and="p"`) — o CDN/backend do TSE ainda está servindo a versão da
+     noite da eleição para esses 3 recursos específicos, mesmo sob pedido
+     forçado (não é cache do nosso lado: `--force` ignora nosso cache local
+     e faz requisição HTTP nova; o servidor que respondeu com o conteúdo
+     antigo). A UF de BA também não mudou (`idg` igual, 2789126) — ou seja,
+     não houve nenhuma atualização de geração para BA desde 02:59:42, nem
+     no agregado nem nos municípios. Divergência residual catalogada em
+     `data/known_issues.csv` (ver item 3 abaixo).
+   - Tamanho da divergência residual (BA, % do total oficial da UF):
+     comparecimento -1.322 (-0,0146%), abstenção -334 (-0,0148%), válidos
+     -1.244 (-0,0145%), brancos -29 (-0,0187%), nulos -49 (-0,0145%). Por
+     candidato, maior efeito em `13`/Lula (-967, -0,0171% do total do
+     candidato na UF) e `22`/Bolsonaro (-236, -0,0097%) — todas as
+     divergências são **< 0,02%** de qualquer total relevante.
+   - **Lição para uma rotina de atualização futura**: arquivos de UF e de
+     município são cacheados/gerados **independentemente** no backend do
+     TSE — não há garantia de que tenham a mesma geração (`dg`/`hg`/`idg`)
+     no mesmo instante, mesmo que o agregado de UF já reflita dados mais
+     novos. Uma rotina de atualização periódica deveria: (a) checar
+     `idg` do município vs `idg` da UF a cada atualização; (b) se
+     divergentes, rebaixar o município com `--force`; (c) se persistir
+     divergente após `--force` (como BA aqui), tratar como "pendência
+     conhecida do backend do TSE" e catalogar, não insistir em loop
+     (reduz risco de bloqueio por excesso de requisições).
 2. **[NÃO é mais tratado como divergência do TSE — nossa fórmula do
    invariante estava incompleta, a spec explica.]** Os 40 "municípios" do
    exterior (`zz`) com `s.ts=1`, `s.si=0` (a única seção nunca foi
@@ -218,6 +229,20 @@ explica o comportamento exatamente. Reescrevemos os testes correspondentes
    (documenta exatamente quando `eleitorado==esi`, também sempre passa) —
    não foi "relaxado" para esconder o caso, foi corrigido porque a premissa
    anterior (comparar com `eleitorado`, condicionado a `and`) estava errada.
+3. **Catálogo `data/known_issues.csv`**: como a divergência de BA (item 1)
+   não converge mesmo com `--force` — é uma pendência do backend do TSE,
+   fora do nosso controle —, catalogamos os valores exatos nesse CSV
+   (colunas `uf, cd_mun_tse, campo, valor_soma, valor_oficial, diferenca,
+   observado_em`; `cd_mun_tse` fica vazio porque a divergência é do
+   **agregado** soma-dos-3-municípios vs UF, não atribuível a um único
+   município isoladamente — não sabemos qual fração cada um dos 3
+   contribui para o total final real, só o resultado agregado). Os testes
+   `test_soma_municipios_por_uf_fecha_com_arquivo_oficial_da_uf` e
+   `test_soma_municipios_por_uf_fecha_votos_por_candidato` agora exigem
+   **igualdade exata** entre as divergências observadas e as catalogadas —
+   uma divergência nova (não catalogada) falha o teste; uma divergência
+   catalogada que deixar de se repetir (TSE corrigiu) **também** falha o
+   teste, forçando revisão manual do CSV em vez de ficar "esquecido".
 
 ## 2. Portal de Dados Abertos (dadosabertos.tse.jus.br)
 
@@ -310,3 +335,12 @@ não pelo parser).
   são 100% derivados dos contadores absolutos já capturados (`campo / total * 100`); refazer
   esse cálculo em pandas/duckdb é mais simples e mais confiável do que parsear string com
   vírgula decimal. Isso é uma omissão deliberada, documentada aqui — não um descarte silencioso.
+
+**Outros artefatos em `data/`** (fora do schema de candidatos/totais acima):
+- `data/processed/snapshot_6257.json`: identifica a geração exata (`idg`/`dg`/`hg`) do arquivo
+  BR e os horários da coleta completa (etapa 2) e da atualização dirigida de BA/MG — "a que
+  versão do TSE" os Parquet correspondem (ver Armadilhas, "o TSE pode atualizar resultados
+  depois").
+- `data/known_issues.csv`: catálogo de divergências soma-município-vs-UF investigadas e sem
+  conserto do lado do TSE (hoje, só BA — ver "Divergências reais" item 3). Lido por
+  `tests/test_invariantes.py`; qualquer divergência fora desse catálogo falha o teste.
