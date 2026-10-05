@@ -7,7 +7,7 @@ Atualizado em 2026-10-05. Toda descoberta nova sobre os dados entra aqui.
 Existe, em duas camadas, e **não precisamos criar dados do zero** — precisamos montar a nossa base *a partir* das fontes oficiais:
 
 1. **API JSON de divulgação do TSE** (disponível agora, é o que alimenta o site de resultados). Resultado por Brasil, UF e **município**, inclusive exterior. Não traz zona/seção agregadas.
-2. **Portal de Dados Abertos do TSE** (CSV). Para 2026, em 05/10, só existem "Correspondências esperadas e efetivadas" e logs. Os conjuntos "Resultados - 2026" (votação por seção, votação nominal por município e zona, detalhe da apuração) **ainda não foram publicados**. Em 2022/2024 eles saíram depois da eleição; a data exata para 2026 não sei — monitorar.
+2. **Portal de Dados Abertos do TSE** (CSV). Para 2026, em 05/10, só existem "Correspondências esperadas e efetivadas" e logs; os conjuntos "Resultados - 2026" (votação por seção, votação nominal por município e zona, detalhe da apuração) **ainda não foram publicados**. Em 2022/2024 eles saíram depois da eleição; a data exata para 2026 não sei — monitorar. **Já usados (F3, enriquecimento)**: Resultados **2022** completos (Presidente, município×zona, 2 turnos) e **Eleitorado 2026** (perfil por município×zona×demografia) — ver seção 2 abaixo.
 3. **Arquivos de urna por seção** (BU) via mesma CDN da API JSON — permitem zona/seção já agora, mas são ~470 mil seções. Plano B.
 
 Estratégia: fase 1 com a API JSON (município); fase 2 com os CSVs do Dados Abertos quando saírem (zona/seção). Ver `DECISOES.md` (D-002).
@@ -248,10 +248,65 @@ explica o comportamento exatamente. Reescrevemos os testes correspondentes
 
 - Grupo resultados: https://dadosabertos.tse.jus.br/group/resultados
 - Esperado para 2026 (por analogia a 2022): `votacao_secao_2026_<UF>.zip`, `votacao_candidato_munzona_2026`, `detalhe_votacao_munzona_2026` (abstenção, brancos, nulos por zona), boletins de urna. **Ainda não publicado em 05/10/2026.**
-- Já disponível: **Eleitorado 2026** — perfil do eleitorado por seção e **eleitorado por local de votação** (inclui coordenadas dos locais — usar para o mapa por zona/local). https://dadosabertos.tse.jus.br/dataset/eleitorado-2026
-- Encoding dos CSVs do TSE costuma ser `latin-1`, separador `;`. Verificar ao baixar.
+- Encoding dos CSVs do TSE: `latin-1`, separador `;`, campos entre aspas (inclusive numéricos). `#NULO`/`#NE` (texto) e `-1`/`-3` (numérico) são os marcadores de ausência do TSE — ver `leiame.pdf` de cada pacote (extraído e lido com o Read tool nesta sessão, não achado por busca na web).
+- **Confirmado em 05/10/2026 (F3, enriquecimento): abrangência Federal (Presidente) mora inteira no CSV `..._BR.csv` de cada pacote** — não precisa dos outros 27 CSVs por UF (que só têm os cargos de abrangência estadual/municipal). Isso reduz drasticamente o que precisa ser lido: dos 642MB do zip `votacao_candidato_munzona_2022.zip`, só os 38MB do `..._BR.csv` interessam para Presidente.
 
-## 3. Geometria
+### 2.1 Resultados 2022 — Presidente (município×zona)
+
+- **Candidatos**: https://cdn.tse.jus.br/estatistica/sead/odsele/votacao_candidato_munzona/votacao_candidato_munzona_2022.zip (642MB; só o membro `votacao_candidato_munzona_2022_BR.csv`, 38MB/81.679 linhas, interessa — abrangência Federal). `data/raw/dadosabertos/cdn.tse.jus.br/estatistica/sead/odsele/votacao_candidato_munzona/votacao_candidato_munzona_2022.zip`.
+- **Totais** (eleitorado/comparecimento/abstenção/brancos/nulos): https://cdn.tse.jus.br/estatistica/sead/odsele/detalhe_votacao_munzona/detalhe_votacao_munzona_2022.zip (4,4MB; membro `detalhe_votacao_munzona_2022_BR.csv`, 12.566 linhas). `data/raw/dadosabertos/cdn.tse.jus.br/estatistica/sead/odsele/detalhe_votacao_munzona/detalhe_votacao_munzona_2022.zip`.
+- Os dois arquivos já trazem **1º e 2º turno juntos** (`NR_TURNO`) — baixar o 2º turno não custou nada a mais (ao contrário do que a tarefa temia).
+- Nível real do arquivo: **município×zona×candidato** (candidatos) / **município×zona** (totais) — agregamos zona→município somando (`groupby(["uf","cd_mun_tse"])`, zonas de um mesmo município sempre têm o mesmo `NM_URNA_CANDIDATO`/`SG_PARTIDO`, usamos o primeiro valor do grupo para esses campos textuais).
+- `ST_VOTO_EM_TRANSITO` e `NM_TIPO_DESTINACAO_VOTOS` são sempre `"N"`/`"Válido"` em toda a amostra de Presidente 2022 — nenhum voto em trânsito nem anulado/sub judice no cargo (diferente do que o `leiame.pdf` geral do portal insinua ser possível).
+- **Mapeamento para `presidente_2022_t<turno>_municipio.parquet`** (candidatos): `SG_UF`→`uf` (minúsculo), `CD_MUNICIPIO`→`cd_mun_tse` (`.zfill(5)` — vem **sem** zero à esquerda neste arquivo, ex. `"5231"`, diferente do `detalhe_votacao_munzona` que já vem com 5 dígitos), `NR_CANDIDATO`→`nr_candidato`, `NM_URNA_CANDIDATO`→`nm_urna`, `SG_PARTIDO`→`partido`, `QT_VOTOS_NOMINAIS`→`votos` (somado por zona). `pct_validos` é **calculado** (`votos / validos_do_município * 100`), não vem pronto no CSV.
+- **Mapeamento para `presidente_2022_t<turno>_municipio_totais.parquet`**: `QT_APTOS`→`eleitorado`, `QT_COMPARECIMENTO`→`comparecimento`, `QT_ABSTENCOES`→`abstencao`, `QT_TOTAL_VOTOS_VALIDOS`→`validos`, `QT_VOTOS_BRANCOS`→`brancos`, `QT_TOTAL_VOTOS_NULOS`→`nulos_tvn`, `QT_VOTOS_NULOS`→`nulos_vn` (sempre igual a `nulos_tvn` nesta amostra — `QT_VOTOS_NULOS_TECNICOS` é sempre 0, diferente de 2026 onde às vezes é >0), `QT_TOTAL_VOTOS_ANULADOS`→`anulados`, `QT_TOTAL_VOTOS_ANUL_SUBJUD`→`anulados_sub_judice` (ambos sempre 0 na amostra, igual a 2026). `cd_mun_ibge` é adicionado via join com o config de 2026 (`mun-e006257-cm.json`, `cd`→`cdi`) — **não vem do CSV de 2022**, que só tem o código TSE.
+- **Invariantes confirmados contra o próprio arquivo (não só contra os números de referência do usuário)**: soma de `votos` de todos os candidatos no município == `validos` do município (100% das linhas, em todos os 5.751 municípios); `validos+brancos+nulos_tvn+anulados+anulados_sub_judice == comparecimento` (100%); soma nacional por candidato — **Lula 57.259.504 / Bolsonaro 51.072.345 no 1º turno** batem exatamente com os números de referência do usuário; 2º turno, Lula 60.345.999 / Bolsonaro 58.206.354 (checado contra o resultado oficial público, não fornecido pelo usuário).
+- `comparecimento + abstencao == eleitorado` **não** é exato: 42 municípios divergem (soma residual nacional de -657). 41 são postos no exterior com `comparecimento=abstencao=0` mas `eleitorado>0` (mesmo padrão dos 40 casos de 2026 — seção nunca instalada; o arquivo de 2022 não tem os campos `esni`/`esnt` que explicariam exatamente, então não dá para provar a condição completa como em 2026, só documentar o padrão). O caso restante é **Manaus/AM** (`02550`): `eleitorado=1.418.757`, `comparecimento+abstencao=1.418.673`, diferença de -84 (0,006% do eleitorado do município) — pequeno demais para investigar a fundo, registrado aqui como quirk conhecido do dado de 2022.
+- **Join 2022↔2026 pelo código TSE** (`cd_mun_tse`, 5.751 municípios em 2022 vs 5.757 em 2026): só **1** órfão de cada lado é inesperado, e ambos são explicáveis — **município criado/extinto é raro, mas não inexistente**, como a tarefa pediu para confirmar em vez de assumir:
+  - Só em 2022: `zz99252` VATICANO — posto consular fechado entre as duas eleições.
+  - Só em 2026: `mt73709` BOA ESPERANÇA DO NORTE (MT, `cdi=5101837`) — **município brasileiro novo**, emancipado depois de 2022, sem resultado 2022 para comparar (esperado — não existia); mais 6 postos consulares novos no exterior (`zz29629` DACCA, `zz99279` SANTA ELENA DE UAIRÉN, `zz99295` PYONGYANG, `zz99490` ORLANDO, `zz99503` EDIMBURGO, `zz99511` MARSELHA).
+
+### 2.2 Perfil do eleitorado 2026
+
+- https://dadosabertos.tse.jus.br/dataset/eleitorado-2026 → **Eleitorado - 2026**: https://cdn.tse.jus.br/estatistica/sead/odsele/perfil_eleitorado/perfil_eleitorado_2026.zip (408MB; só o membro `perfil_eleitorado_2026_BRASIL.csv` interessa, 2,17GB descomprimido/~11M linhas — os 27+1 CSVs por UF dentro do mesmo zip são redundantes com ele, mesmo padrão do item 2.1). `data/raw/dadosabertos/cdn.tse.jus.br/estatistica/sead/odsele/perfil_eleitorado/perfil_eleitorado_2026.zip`.
+- **Já vem agregado** por `SG_UF`×`CD_MUNICIPIO`×`NR_ZONA`×(gênero, estado civil, faixa etária, grau de escolaridade, raça/cor, identidade de gênero, quilombola, intérprete de libras) — **não é 1 linha por eleitor**, é a contagem `QT_ELEITORES` de cada combinação. Processado em `chunksize=1_000_000` (`scripts/processar_eleitorado.py`, ~1min/11M linhas) para não estourar memória; cada pedaço é reduzido a 4 somas parciais (total/sexo/faixa/grau) antes de acumular — só o agregado final fica em memória inteiro.
+- **Nomes de colunas reais do CSV divergem do `leiame.pdf`** em 2 campos: o PDF documenta `QT_ELEITORES_PERFIL` e `QT_ELEITORES_INC_NM_SOCIAL`, o CSV real tem `QT_ELEITORES` e `QT_ELEITORES_NOME_SOCIAL`. Usamos os nomes reais do CSV (conferidos por inspeção direta do cabeçalho).
+- **Categorias confirmadas por inspeção dos dados** (não assumidas do PDF, que só documenta os códigos de sexo/escolaridade, não a faixa etária):
+  - `DS_GENERO`: `MASCULINO`, `FEMININO`, `NÃO INFORMADO`.
+  - `DS_FAIXA_ETARIA`: `16 anos`, `17 anos`, `18 anos`, `19 anos`, `20 anos`, depois de 5 em 5 anos — `21 a 24 anos`, `25 a 29 anos`, ..., `95 a 99 anos` —, `100 anos ou mais`, e `Inválida` (idade não aferível, residual). **Não existe um bin único "16 a 17 anos"** — são dois bins de 1 ano cada (facultativo é 16 **e** 17, não "16 a 17" como categoria do TSE).
+  - `DS_GRAU_ESCOLARIDADE`: `ANALFABETO`, `LÊ E ESCREVE`, `ENSINO FUNDAMENTAL INCOMPLETO`, `ENSINO FUNDAMENTAL COMPLETO`, `ENSINO MÉDIO INCOMPLETO`, `ENSINO MÉDIO COMPLETO`, `SUPERIOR INCOMPLETO`, `SUPERIOR COMPLETO`, `NÃO INFORMADO` (9 categorias, batem com o PDF).
+- **Schema de saída** (`eleitorado_perfil_2026_municipio.parquet`, 1 linha por município, 5.757 linhas = Brasil + exterior): `uf, cd_mun_tse, nm_mun_tse, total` + `pct_sexo_<slug>` (3 colunas, partição, soma 100%) + `pct_faixa_<slug>` (23 colunas — 22 bins + `invalida`, partição, soma 100%) + `pct_grau_<slug>` (9 colunas, partição, soma 100%) + **2 colunas extras dedicadas**, fora da partição de faixa etária: `pct_faixa_facultativa_16_17` (= `pct_faixa_16 + pct_faixa_17`) e `pct_faixa_facultativa_70_mais` (soma de `70_74` até `100_mais`) — como a tarefa pediu destaque explícito para essas duas faixas (voto facultativo) e elas não existem como bin único do TSE, a soma é feita em Python (`src/eleicao/parse_eleitorado.py:pivotar_wide`), documentada para quem for somar `pct_faixa_*` "às cegas" não contar a mesma pessoa duas vezes.
+- `_slug`: remove acento, minúsculo, `" a "`→`"_"`, `" ou mais"`→`"_mais"`, `" anos"`→`""` (ex. `"80 a 84 anos"`→`"80_84"`, `"Ensino médio completo"`→`"ensino_medio_completo"`).
+- **Cruzamento com o EA20 (F1/F2) como conferência cruzada, não um invariante obrigatório** (são 2 produtos distintos do TSE, gerados em datas diferentes): `total` somado nacionalmente = **158.745.463** eleitores; `presidente_t1_br_totais.parquet.eleitorado` (EA20, 05/10/2026) = **158.745.502** — diferença de **39** (0,0000246%). O perfil é gerado a partir do cadastro eleitoral (`DT_GERACAO` nas linhas = 14/07/2026, bem antes da eleição — é o fechamento do alistamento, não um corte do dia da votação), o EA20 é o eleitorado apurado no 1º turno; a proximidade altíssima é uma boa confirmação de consistência entre as duas fontes, mas não motivo para forçar igualdade exata.
+- **Join com o config de 2026**: as 5.757 chaves (`uf`+`cd_mun_tse`) do perfil batem **exatamente** com as 5.757 do `mun-e006257-cm.json` — 0 órfão de cada lado (diferente do cruzamento 2022↔2026, que tem postos abertos/fechados entre as duas eleições; aqui as duas fontes são do mesmo ciclo 2026).
+
+## 4. IBGE
+
+Duas fontes, hosts diferentes dentro do próprio IBGE — `www.ibge.gov.br` retorna
+**403** neste ambiente (mesma classe de bloqueio documentada para
+`www.tse.jus.br`, ver Armadilhas da seção 1), mas `servicodados.ibge.gov.br`
+(API SIDRA) e `ftp.ibge.gov.br` funcionam normalmente.
+
+### 4.1 População — Censo 2022
+
+- API SIDRA, agregado **4709** ("População residente, Variação absoluta de
+  população residente e Taxa de crescimento geométrico"), variável **93**
+  ("População residente"), único período disponível: **2022** (1ª apuração
+  do Censo). `GET https://servicodados.ibge.gov.br/api/v3/agregados/4709/periodos/2022/variaveis/93?localidades=N6[all]` — 1 requisição só, resposta de 689KB com os 5.570 municípios (nível `N6`). Salvo em `data/raw/ibge/servicodados.ibge.gov.br/api/v3/agregados/4709/periodos/2022/variaveis/93.json` (espelha host+path da API).
+- `localidade.id` = `cd_mun_ibge` (7 dígitos); `serie."2022"` = população (string, convertida para `int`).
+- **5.570 municípios** — não 5.571 como o config do TSE (`mun-e006257-cm.json`): o IBGE não reconhece Fernando de Noronha como município (é distrito estadual de PE), mas o TSE trata como uma "abrangência municipal" própria para fins eleitorais. Isso já era sabido do join TSE↔`geobr` de F1 (`scripts/diagnostico_join_ibge.py`); mencionado aqui de novo porque a diferença de contagem (5.570 vs 5.571/5.757) aparece outra vez nos joins de F3.
+- Soma nacional: **203.080.756** — população residente total do Censo 2022 (1ª apuração), bate com o número oficialmente divulgado pelo IBGE.
+
+### 4.2 PIB per capita municipal
+
+- **Não existe um agregado SIDRA com PIB per capita em nível municipal** (checado: agregado **5938**, "PIB dos Municípios — Referência 2010", tem `N6` mas só 46 variáveis de PIB/VAB **absolutos** e "participação %", sem população nem per capita; o agregado **6784** tem PIB per capita mas só em nível **N1**, Brasil). O produto oficial "PIB per capita" municipal só existe no **arquivo de resultados completo do produto**, fora do SIDRA.
+- Fonte usada: FTP público do IBGE, `https://ftp.ibge.gov.br/Pib_Municipios/2022_2023/base/base_de_dados_2010_2023_txt.zip` (7,75MB; pasta `2022_2023` é a mais recente do diretório `Pib_Municipios/`). Salvo em `data/raw/ibge/ftp.ibge.gov.br/Pib_Municipios/2022_2023/base/base_de_dados_2010_2023_txt.zip`.
+- Formato: **texto de largura fixa** (não CSV), 1 linha por município×ano, 2010-2023, `latin-1`, CRLF, 1258 bytes/linha. Layout oficial em `layout_da_base_de_dados_2010_2023_em_formato_txt.pdf` (dentro do zip) — posições 1-indexadas; o parser (`src/eleicao/parse_ibge.py:_PIB_COLSPECS`) usa o intervalo **até a posição do próximo campo do layout** (não a "largura" declarada, que para campos monetários é só `dígitos.decimais`, ex. `"18.3"` — ambíguo quanto a espaço do separador decimal; a posição do próximo campo é inequívoca e foi conferida por slicing direto).
+- **Ano mais recente disponível: 2023** (não 2021 — a tarefa avisou para não assumir). Nota 2 do layout: "Para os anos de 2022 e 2023 foram divulgados apenas o Produto Interno Bruto e o Produto Interno Bruto per capita" — as demais variáveis (VAB por setor etc.) ficam em branco nesses 2 anos; usamos só PIB total e per capita mesmo, então não afeta nosso schema. Nota 3: por falta da "Estimativa da População" (TCU) de 2022/2023, o PIB per capita desses 2 anos usa população do **Censo 2022** (2022) e da "Relação da População dos Municípios" enviada ao TCU em 2023 (2023) — **o PIB per capita já vem calculado pelo IBGE no arquivo**, não precisamos dividir PIB/população nós mesmos.
+- Campos usados (posição → campo): 1→`ano`, 24→`sigla_uf`, 47→`cd_mun_ibge`, 55→`nm_mun_ibge` (formato `"Nome - UF"`, diferente do `nm`/`nm_mun` do TSE, que não tem sufixo de UF — não usar para exibição sem normalizar), 935→`pib_mil_reais` (R$ mil), 954→`pib_per_capita_reais` (R$ 1,00).
+- **Join com população (Censo 2022) por `cd_mun_ibge`**: **5.570 = 5.570 municípios dos dois lados, 0 órfão** — as duas fontes do IBGE (Censo e PIB municipal) usam exatamente o mesmo universo de municípios.
+
+## 5. Geometria
 
 - Municípios/UFs: IBGE via pacote `geobr` (`read_municipality(year=2024)`, `read_state`). Simplificar (mapshaper/`topojson`) para o web.
 - **Armadilha do `geobr`: `simplified=True` (o padrão) simplifica FEATURE A FEATURE.** Serve para um plot rápido no matplotlib, mas **não serve como entrada de uma topologia**: os vértices das fronteiras entre municípios vizinhos deixam de coincidir exatamente, e o `topojson.Topology` não consegue reconhecer os arcos compartilhados. Medido em 05/10/2026 (ver `docs/DECISOES.md` D-016): MG sai com **20.460 arcos** a partir da malha simplificada contra **2.533** a partir da completa; Brasil inteiro, **113.358** contra **18.140**. Como cada arco custa no mínimo 2 pontos no arquivo final, isso cria um piso de tamanho que nenhuma tolerância de simplificação consegue furar. Para qualquer uso topológico (TopoJSON, dissolve, vizinhança), use `read_municipality(year=2024, simplified=False)` — 5.571 municípios, 17.889.916 vértices, ~10s de leitura do cache do `geobr` — e simplifique depois, com `topojson`.
@@ -350,3 +405,33 @@ não pelo parser).
   `scripts/verificar_atualizacoes.py` (que extrai dinamicamente de `uf`/`cd_mun_tse` a lista de
   itens a reverificar — nunca hardcoded). Coluna `cd_mun_tse`: vazia quando a divergência é só de
   UF; quando há municípios associados, códigos TSE separados por `|` (ex. `33693|34673|36013`).
+
+## Schemas normalizados (F3 — enriquecimento, `data/processed/`, 05/10/2026)
+
+Gerados por `src/eleicao/parse_dadosabertos_2022.py` + `scripts/processar_presidente_2022.py`,
+`src/eleicao/parse_eleitorado.py` + `scripts/processar_eleitorado.py`, e
+`src/eleicao/parse_ibge.py` + `scripts/processar_ibge.py`. Mapeamento de campo a campo nas
+seções 2.1/2.2/4 acima; aqui só o schema final.
+
+`presidente_2022_t<turno>_municipio.parquet` (turno 1 ou 2; candidatos, 1 linha por
+candidato×município, 63.261/11.502 linhas): `uf, cd_mun_tse, nr_candidato, nm_urna, partido,
+votos, pct_validos` — schema deliberadamente mais enxuto que `presidente_t1_municipio.parquet`
+(2026): sem os `extra_*` (nome completo do candidato, `sqcand`, coligação/federação etc.), porque
+o CSV de 2022 não tem alguns desses campos no mesmo formato e a tarefa pediu só os comparáveis.
+
+`presidente_2022_t<turno>_municipio_totais.parquet` (1 linha por município, 5.751 linhas = Brasil
++ exterior): `uf, cd_mun_tse, nm_mun_tse, eleitorado, comparecimento, abstencao, validos, brancos,
+nulos_tvn, nulos_vn, anulados, anulados_sub_judice, cd_mun_ibge`. `cd_mun_ibge` vem de um join
+com o config de 2026 (não existe no CSV de 2022) — `None` para os municípios/postos sem par (ver
+seção 2.1, "Join 2022↔2026").
+
+`eleitorado_perfil_2026_municipio.parquet` (1 linha por município, 5.757 linhas = Brasil +
+exterior, 41 colunas): `uf, cd_mun_tse, nm_mun_tse, total` + `pct_sexo_<slug>` (3) +
+`pct_faixa_<slug>` (23) + `pct_grau_<slug>` (9) + `pct_faixa_facultativa_16_17`,
+`pct_faixa_facultativa_70_mais` — ver seção 2.2 para a lista de categorias e a observação sobre
+as 2 colunas extras não fazerem parte da partição `pct_faixa_*`.
+
+`ibge_municipio.parquet` (1 linha por município, 5.570 linhas — só Brasil, IBGE não tem código
+para o exterior nem para Fernando de Noronha): `cd_mun_ibge, nm_mun_ibge, populacao_censo_2022,
+pib_mil_reais, pib_per_capita_reais` — ver seção 4 para as fontes e o ano de cada métrica
+(população: Censo 2022; PIB: 2023, o mais recente disponível).

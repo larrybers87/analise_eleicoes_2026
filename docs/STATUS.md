@@ -1,6 +1,6 @@
 # STATUS
 
-Última atualização: 2026-10-05 — F2.2 entregue: seleção de candidato no mapa, modos "Onde venceu" e "Força".
+Última atualização: 2026-10-05 — F3 (base de enriquecimento): Presidente 2022, perfil do eleitorado 2026 e dados IBGE (população/PIB per capita).
 
 ## Feito
 - Estrutura de pastas, `CLAUDE.md`, docs (`DADOS.md`, `DECISOES.md`, `ROADMAP.md`), `.gitignore`, `environment.yml`, `pyproject.toml`.
@@ -34,14 +34,20 @@
   - **Tamanho medido**: `web/data/` 7.579,3KB/1.898,2KB gzip → **7.946,8KB/2.012,1KB (+367,5KB / +113,9KB; +4,8% / +6,0%)**. `uf_*.json`, `municipios_br.json` e a geometria **inalterados**. Carga inicial 70,3 → 72,2KB gzip; por candidato selecionado, 3,5–16KB gzip + 4,2KB do resumo (uma vez).
   - `scripts/verificar_export_web.py` estendido: **391 verificações, 0 falhas** (escalas recalculadas por `cores.py`, p98 e percentuais por posição, fatiamento por UF via `forca_offsets`, `votos_cand` de BR/UF/exterior, municípios vencidos e os dois top 10 do resumo). `pytest -q`: **93 testes passam** (novos: monotonicidade/extremos dos stops, escala neutra compartilhada, p98 sem exterior em `tests/test_forca.py`).
   - Previews: `docs/img/mapa_preview_f22_*.png` (6 + painel isolado).
+- **F3 — base de enriquecimento ENTREGUE** (D-019; a análise exploratória em si ainda não começou):
+  - **Presidente 2022** (Dados Abertos TSE): `scripts/processar_presidente_2022.py` lê só o CSV `..._BR.csv` de 2 pacotes (`votacao_candidato_munzona_2022.zip` 642MB, `detalhe_votacao_munzona_2022.zip` 4,4MB — baixados em `data/raw/dadosabertos/cdn.tse.jus.br/...`) e agrega zona→município. `presidente_2022_t{1,2}_municipio[_totais].parquet` (4 arquivos, 1,48MB total). Soma nacional por candidato bate exatamente com a referência (Lula 57.259.504 / Bolsonaro 51.072.345 no 1º turno). Join 2022↔2026 por `cd_mun_tse`: 1 órfão de cada lado, ambos investigados (posto consular VATICANO fechado; município novo BOA ESPERANÇA DO NORTE/MT + 6 postos consulares novos).
+  - **Perfil do eleitorado 2026** (Dados Abertos TSE): `scripts/processar_eleitorado.py` processa `perfil_eleitorado_2026_BRASIL.csv` (408MB zip, 2,17GB/~11M linhas, `data/raw/dadosabertos/.../perfil_eleitorado/`) em `chunksize=1_000_000` (~1min). `eleitorado_perfil_2026_municipio.parquet` (1,46MB, 5.757 municípios, 41 colunas): total + % por sexo/faixa etária (23 bins nativos do TSE + 2 colunas dedicadas `pct_faixa_facultativa_16_17`/`_70_mais`)/grau de instrução. Total nacional (158.745.463) bate com o `eleitorado` do EA20 BR a menos de 40 unidades.
+  - **IBGE**: `scripts/processar_ibge.py` combina população (Censo 2022, SIDRA agregado 4709) e PIB per capita municipal (FTP `Pib_Municipios/2022_2023`, ano mais recente = 2023 — não existe PIB per capita municipal no SIDRA, só no arquivo de resultados do produto). `ibge_municipio.parquet` (224KB, 5.570 municípios, join por `cd_mun_ibge` sem órfãos). População nacional soma 203.080.756 (Censo 2022 oficial).
+  - `tests/test_enriquecimento.py`: 16 testes novos (soma nacional 2022, invariantes de totais, join 2022↔2026, partições de % do eleitorado somando 100%, cruzamento eleitorado×EA20, IBGE sem órfãos). `pytest -q`: **109 testes passam** (93 + 16).
+  - `.gitignore`: 6 Parquet novos liberados explicitamente (mesmo padrão de D-007/D-017).
 
 ## Em andamento
 - (nada)
 
 ## Próximo (em ordem)
-1. Acompanhar `matematicamente_definido` (`md`) da BR — já `"s"` (2º turno) em 05/10/2026; quando `tf_judicial` virar `"s"`, `situacao`/`classificado` dos candidatos passam a ser confiáveis para saber quem avança. Rodar `scripts/verificar_atualizacoes.py` periodicamente; se houver mudança, rodar `python scripts/exportar_web.py --sem-geometria` (a geometria não precisa ser refeita) e dar push (o workflow de Pages redeploya sozinho em qualquer push que toque `web/**`).
-2. F2.1: geocodificação do exterior (186 postos → país/coordenadas) para sair da tabela e virar pontos no mapa.
-3. F3: análises (abstenção/brancos/nulos por recorte, concentração de votos, comparativos).
+1. F3: análise exploratória em si (notebooks + lógica em `src/eleicao/`) usando a base de enriquecimento já pronta — abstenção/brancos/nulos por recorte, concentração de votos, comparativo 2022→2026, correlação com perfil do eleitorado/IBGE.
+2. Acompanhar `matematicamente_definido` (`md`) da BR — já `"s"` (2º turno) em 05/10/2026; quando `tf_judicial` virar `"s"`, `situacao`/`classificado` dos candidatos passam a ser confiáveis para saber quem avança. Rodar `scripts/verificar_atualizacoes.py` periodicamente; se houver mudança, rodar `python scripts/exportar_web.py --sem-geometria` (a geometria não precisa ser refeita) e dar push (o workflow de Pages redeploya sozinho em qualquer push que toque `web/**`).
+3. F2.1: geocodificação do exterior (186 postos → país/coordenadas) para sair da tabela e virar pontos no mapa.
 
 ## Publicação
 - **Site**: https://larrybers87.github.io/analise_eleicoes_2026/ — deploy automático via `.github/workflows/pages.yml` (push em `main` tocando `web/**`, ou `workflow_dispatch`). GitHub Pages do repositório já estava configurado com `build_type: workflow` (`gh api repos/.../pages`) — não precisou de ativação manual adicional.
@@ -58,4 +64,7 @@
 - **Decisões de design do F2.2 para o usuário revisar** (detalhe em D-018): (a) os 7 candidatos de cor cinza usam uma escala sequencial neutra ÚNICA, então a ponta escura da rampa deles **não** é a cor do candidato — alternativa seria dar hue artificial a eles só nesse modo; (b) a escala de "Força" satura no p98, o que achata o topo da cauda (ex. Colina/SP, único município com 17,3% de Cury, lê igual a 4,6%); (c) no nível nacional por município o tooltip/painel do modo "Força" mostra só o **%** do candidato, não os votos absolutos (`municipios_br.json` não tem `validos`, e adicioná-lo engordaria o caminho comum em ~33KB brutos).
 - **Divergência residual de BA (3 municípios) sem solução do nosso lado**: confirmada de novo via `scripts/verificar_atualizacoes.py` nesta sessão — o backend do TSE segue servindo uma geração de 04/10 ~21:00 para `ba33693`/`ba34673`/`ba36013`, mesmo sob `--force`. Catalogada em `data/known_issues.csv`; todas as diferenças são < 0,02% dos totais da UF. Rodar `scripts/verificar_atualizacoes.py` periodicamente.
 - Data de publicação dos CSVs de seção/zona 2026 no Dados Abertos: desconhecida. Checar semanalmente.
+- **`www.ibge.gov.br` retorna 403 neste ambiente** (mesma classe de bloqueio do `www.tse.jus.br`) — não bloqueou nada porque o SIDRA (`servicodados.ibge.gov.br`) e o FTP (`ftp.ibge.gov.br`) funcionam normalmente e cobriram as 2 fontes do F3 (ver `docs/DADOS.md` seção 4). Registrar caso alguma fonte futura só exista no site principal.
+- **`data/raw/dadosabertos/` ficou com ~1GB** (zips completos dos 3 pacotes do TSE, não versionado) — a maior parte (votação 2022 e perfil do eleitorado 2026) é usada só parcialmente (1 CSV de cada zip, os outros 27+1 por UF não foram lidos). Não é um problema (raw é imutável/não versionado), só um lembrete de espaço em disco se `data/raw/` for copiado/movido.
+- **Manaus/AM (2022): diferença residual pequena e não investigada a fundo** — `comparecimento+abstencao` fica 84 abaixo de `eleitorado` (0,006%). Provável revisão cadastral pós-eleição; não afeta nenhum invariante de votos/válidos. Ver `docs/DADOS.md` seção 2.1.
 - **Ambiente Windows tem 2 outras instalações de conda/miniconda no `PATH` do sistema** (`C:\ProgramData\miniconda3` e `C:\Users\Usuário\miniconda3`, distintas de `C:\Users\Usuário\Miniconda3\envs\eleicao2026` usada pelo projeto) — causou `DeadKernelError` em matplotlib/Jupyter por conflito de DLL (`freetype`/`libpng`); contornado prefixando `PATH` com `...\envs\eleicao2026\Library\bin` antes de rodar o kernel. Não é um problema do projeto, mas vale limpar o `PATH` do sistema ou documentar o workaround se notebooks voltarem a travar.

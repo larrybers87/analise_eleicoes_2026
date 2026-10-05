@@ -18,6 +18,13 @@ data/processed/*zona*
 !data/processed/presidente_t1_uf_totais.parquet
 !data/processed/presidente_t1_municipio.parquet
 !data/processed/presidente_t1_municipio_totais.parquet
+# Parquet de enriquecimento (F3, nível município, ~3,1MB total em 05/10/2026) — ok versionar
+!data/processed/presidente_2022_t1_municipio.parquet
+!data/processed/presidente_2022_t1_municipio_totais.parquet
+!data/processed/presidente_2022_t2_municipio.parquet
+!data/processed/presidente_2022_t2_municipio_totais.parquet
+!data/processed/eleitorado_perfil_2026_municipio.parquet
+!data/processed/ibge_municipio.parquet
 
 # Python
 __pycache__/
