@@ -1,0 +1,172 @@
+# Paleta de cores — Presidente 2026, 1º turno (12 candidatos)
+#
+# Fonte de `nr`/`nm_urna`/`partido`/`votos_br`/`pct_validos_br`:
+# data/processed/presidente_t1_br.parquet (snapshot registrado em
+# data/processed/snapshot_6257.json). Esses 5 campos são DADO — não editar
+# à mão; se o parquet for atualizado (ex. totalização final), regenerar
+# este arquivo a partir dele. Só `cor_hex`/`grupo`/`oklch` são DECISÃO DE
+# DESIGN, definidos nesta tarefa e descritos em docs/DECISOES.md.
+#
+# Modelo de cor: OKLCH (L, C, H) — perceptualmente uniforme, convertido para
+# sRGB hex (ver src/eleicao/cores.py). `oklch` abaixo é só documentação de
+# como `cor_hex` foi derivado; o código em produção lê apenas `cor_hex`.
+#
+# Grupos (regras da tarefa de paleta, ver CLAUDE.md/docs/DECISOES.md D-004):
+#   principal  — PT (13, vermelho) e PL (22, azul): luminosidade OKLab
+#                parecida (|ΔL| < 0.05) e croma alto; ver verificação de
+#                distinguibilidade para daltonismo em notebooks/01_paleta.ipynb.
+#   secundario — 3º e 4º colocados: hues distintos dos principais e entre
+#                si, croma médio.
+#   menor      — 5º a 12º colocados: hues distintos entre si, croma baixo
+#                (pesam pouco na mistura ponderada por votos).
+#
+# Decisão de design #1 (REVISAR): a regra (b) ("nenhum verde/amarelo entre
+# os dois principais") é lida aqui como restrita a PT/PL — os matizes 29°
+# (vermelho) e 262° (azul) escolhidos para eles não caem na faixa
+# amarelo/verde (~55°-165° em OKLCH), e a mistura linear em OKLab de
+# vermelho (a>0,b>0) com azul (a<0,b<0) passa por um ponto acinzentado/
+# arroxeado perto da origem — nunca por verde/amarelo — então o gradiente
+# PT↔PL (notebooks/01_paleta.ipynb) também cumpre a regra automaticamente.
+# NÃO estendemos essa proibição aos demais 10 candidatos: testamos
+# (scripts/validate_palette.js da skill `dataviz` + simulação própria de
+# CVD) e não existe par de matizes fora do verde/amarelo, ao mesmo tempo
+# distante o bastante de vermelho/azul, que separe 3º e 4º colocados sob
+# deuteranopia com ΔE >= 8 (ver histórico da sessão) — o par que passou em
+# todas as checagens (croma médio, CVD, contraste) usa verde (156°) para o
+# 3º colocado. É um verde dessaturado (C=0,13, bem abaixo do verde-bandeira
+# saturado) e não aparece ao lado de amarelo, então o risco de leitura
+# "bandeira do Brasil" é baixo, mas é uma escolha discutível — reveja se
+# preferir outro par de matizes (aceitando uma distinguibilidade CVD pior
+# para o 3º/4º colocados como troca).
+#
+# Decisão de design #2 (nota, não precisa revisão): croma dos 8 candidatos
+# "menor" subiu de 0,05 (plano inicial) para 0,07 e os matizes foram
+# reespaçados — com croma 0,05 dois pares ficavam quase idênticos mesmo em
+# visão normal (ΔE OKLab x100 ~= 2,6; ver histórico da sessão). Mesmo assim,
+# croma 0,07 continua "baixo" frente aos 0,13 (secundário)/~0,19-0,21
+# (principal) da paleta, e por simulação de CVD, qualquer par de matizes
+# nessa faixa de croma baixa colapsa bastante sob deuteranopia quando cai
+# na região azul-violeta do círculo de matizes (~190°-330°) — é uma
+# limitação inerente de croma baixo, não um bug a corrigir: a regra (d) já
+# aceita essa troca ("a precisão da cor deles importa menos").
+#
+# REGRA (e): brancos, nulos e abstenção NÃO entram aqui — são métricas
+# separadas (ver presidente_t1_*_totais.parquet), não compõem a mistura de
+# cor do mapa. `mistura_oklab`/`vencedor_margem` em src/eleicao/cores.py só
+# aceitam `{nr_candidato: votos}` sobre votos válidos.
+
+candidatos:
+  - nr: 22
+    nm_urna: "FLAVIO BOLSONARO"
+    partido: PL
+    votos_br: 56104503
+    pct_validos_br: 47.027772356
+    grupo: principal
+    cor_hex: "#306adb"
+    oklch: {l: 0.55, c: 0.185, h: 262}
+
+  - nr: 13
+    nm_urna: "LULA"
+    partido: PT
+    votos_br: 53879538
+    pct_validos_br: 45.162767911
+    grupo: principal
+    cor_hex: "#d01f17"
+    oklch: {l: 0.55, c: 0.21, h: 29}
+
+  - nr: 70
+    nm_urna: "ESCRITOR AUGUSTO CURY"
+    partido: AVANTE
+    votos_br: 3448569
+    pct_validos_br: 2.890650647
+    grupo: secundario
+    cor_hex: "#319d64"
+    oklch: {l: 0.62, c: 0.13, h: 156}
+
+  - nr: 14
+    nm_urna: "RENAN SANTOS"
+    partido: MISSÃO
+    votos_br: 2675887
+    pct_validos_br: 2.242975126
+    grupo: secundario
+    cor_hex: "#b167ab"
+    oklch: {l: 0.62, c: 0.13, h: 330}
+
+  - nr: 55
+    nm_urna: "RONALDO CAIADO"
+    partido: PSD
+    votos_br: 2605148
+    pct_validos_br: 2.183680463
+    grupo: menor
+    cor_hex: "#9e7853"
+    oklch: {l: 0.60, c: 0.07, h: 65}
+
+  - nr: 30
+    nm_urna: "ZEMA"
+    partido: NOVO
+    votos_br: 326488
+    pct_validos_br: 0.273667933
+    grupo: menor
+    cor_hex: "#9e9b68"
+    oklch: {l: 0.68, c: 0.07, h: 105}
+
+  - nr: 80
+    nm_urna: "SAMARA"
+    partido: UP
+    votos_br: 122911
+    pct_validos_br: 0.103026143
+    grupo: menor
+    cor_hex: "#498e89"
+    oklch: {l: 0.60, c: 0.07, h: 190}
+
+  - nr: 16
+    nm_urna: "HERTZ DIAS"
+    partido: PSTU
+    votos_br: 43103
+    pct_validos_br: 0.036129686
+    grupo: menor
+    cor_hex: "#67a2b9"
+    oklch: {l: 0.68, c: 0.07, h: 225}
+
+  - nr: 27
+    nm_urna: "CLARIANA BARAO"
+    partido: DC
+    votos_br: 40043
+    pct_validos_br: 0.033564741
+    grupo: menor
+    cor_hex: "#7c7aa9"
+    oklch: {l: 0.60, c: 0.07, h: 286}
+
+  - nr: 21
+    nm_urna: "EDMILSON COSTA"
+    partido: PCB
+    votos_br: 22693
+    pct_validos_br: 0.019021668
+    grupo: menor
+    cor_hex: "#a38dbb"
+    oklch: {l: 0.68, c: 0.07, h: 306}
+
+  - nr: 35
+    nm_urna: "VETERINÁRIO WILSON GRASSI"
+    partido: DEMOCRATA
+    votos_br: 16881
+    pct_validos_br: 0.014149948
+    grupo: menor
+    cor_hex: "#a26f82"
+    oklch: {l: 0.60, c: 0.07, h: 355}
+
+  - nr: 29
+    nm_urna: "RUI COSTA PIMENTA"
+    partido: PCO
+    votos_br: 15024
+    pct_validos_br: 0.012593379
+    grupo: menor
+    cor_hex: "#bf8790"
+    oklch: {l: 0.68, c: 0.07, h: 8}
+
+# Fora da paleta de mistura (regra e) — métricas separadas, não têm
+# nr_candidato nem cor fixa associada a este arquivo:
+fora_da_mistura:
+  - brancos
+  - nulos
+  - abstencao

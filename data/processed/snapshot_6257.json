@@ -20,5 +20,32 @@
   "atualizacao_dirigida_ba_mg": {
     "em": "2026-10-05T12:24:04",
     "descricao": "Rebaixa forçada (--force --apenas) de uf:ba, uf:mg e dos 11 municípios divergentes (ver scripts/diagnostico_ba_mg.py e docs/DADOS.md). MG convergiu (geração nova, and=f, snt=0 em todos). BA não convergiu — os 3 municípios continuam servindo uma geração de 04/10/2026 ~21:00 (idg~1.88M), mesmo após --force; divergência residual catalogada em data/known_issues.csv."
+  },
+  "acompanhamento_known_issues": {
+    "mun:ba:33693": {
+      "idg": "1886327",
+      "dg": "04/10/2026",
+      "hg": "21:01:01",
+      "and": "p"
+    },
+    "mun:ba:34673": {
+      "idg": "1886302",
+      "dg": "04/10/2026",
+      "hg": "21:01:00",
+      "and": "p"
+    },
+    "mun:ba:36013": {
+      "idg": "1886322",
+      "dg": "04/10/2026",
+      "hg": "21:01:00",
+      "and": "p"
+    },
+    "uf:ba": {
+      "idg": "2789126",
+      "dg": "05/10/2026",
+      "hg": "02:59:42",
+      "and": "f"
+    },
+    "ultima_verificacao_em": "2026-10-05T12:42:10-03:00"
   }
 }

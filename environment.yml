@@ -17,6 +17,7 @@ dependencies:
   - jupyterlab
   - ipykernel
   - tqdm
+  - pyyaml      # carrega config/candidatos.yaml (paleta de cores)
   - ruff
   - pytest
   - pip

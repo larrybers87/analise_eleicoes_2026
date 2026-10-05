@@ -1,6 +1,6 @@
 # STATUS
 
-Última atualização: 2026-10-05 — base de municípios fechada: BA/MG investigados, 21/21 invariantes passam.
+Última atualização: 2026-10-05 — modelo dos agentes fixado, rotina de verificação e paleta de cores propostas (aguardando aprovação do usuário).
 
 ## Feito
 - Estrutura de pastas, `CLAUDE.md`, docs (`DADOS.md`, `DECISOES.md`, `ROADMAP.md`), `.gitignore`, `environment.yml`, `pyproject.toml`.
@@ -15,16 +15,19 @@
 - **Investigação BA/MG (etapa 4)**: `scripts/diagnostico_ba_mg.py` comparou `dg`/`hg`/`idg` de município vs UF — confirmou que os 11 municípios divergentes serviam uma geração de 04/10 ~21:00 (`idg`~1,8M) enquanto as UFs já estavam em 05/10 ~02:59 (`idg`~2,79M). `coletar_presidente.py` ganhou a opção `--apenas` (lista explícita `uf:<sigla>`/`mun:<uf>:<cd>`/`br`, usar com `--force`) para rebaixar só os 13 arquivos afetados sem "varrer tudo de novo". Resultado: **MG convergiu** (nova geração, `and=f`, `snt=0` em todos os 8); **BA não convergiu** (os 3 municípios voltaram com os mesmos bytes antigos mesmo com `--force` — pendência do backend do TSE, fora do nosso controle).
 - `data/known_issues.csv`: catálogo da divergência residual de BA (12 linhas: 5 campos de totais + 7 candidatos, todas < 0,02% do total da UF). `tests/test_invariantes.py` agora exige igualdade exata entre divergências observadas e catalogadas (21 testes, **21 passam**).
 - `data/processed/snapshot_6257.json`: geração exata (`idg`/`dg`/`hg`) do arquivo BR + horários da coleta completa e da atualização dirigida BA/MG — registra "a que versão do TSE" os Parquet correspondem.
+- **Agentes**: `model: sonnet` fixado no frontmatter de `coletor-tse` e `analista-eleitoral` (D-012); futuro agente de mapa (F2) nasce com `model: opus`.
+- `scripts/verificar_atualizacoes.py`: rotina de manutenção — rebaixa com `--force` só o BR e os itens de `data/known_issues.csv` (UF/município extraídos dinamicamente da coluna `cd_mun_tse`, agora populada e pipe-separada), compara geração com `snapshot_6257.json`, e só reprocessa Parquet/roda testes/atualiza known_issues se algo mudou. Uso documentado no `README.md`. Testado 2x nesta sessão: divergência de BA **ainda não convergiu** do lado do TSE.
+- **Paleta de cores (proposta, aguardando aprovação)**: `config/candidatos.yaml` (12 candidatos, cor hex por regra principal/secundário/menor), `src/eleicao/cores.py` (`mistura_oklab`, `vencedor_margem`, `simular_daltonismo`, `distancia_oklab`), `tests/test_cores.py` (12 testes, caso-limite/ponto-médio-independente/invariância de escala), `notebooks/01_paleta.ipynb` + `docs/img/paleta_preview.png` (preview com swatches, gradiente PT↔PL nos 2 modos, mapa das 27 UFs nos 2 modos, simulação de deuteranopia). PT×PL: ΔL=0,0008, ΔE (OKLab) 0,353 visão normal / 0,289 protanopia / 0,309 deuteranopia — todos acima do limiar adotado (0,10). Duas decisões de design documentadas no próprio YAML para revisão do usuário (uso de verde dessaturado no 3º colocado; croma dos candidatos menores ajustado de 0,05→0,07).
 
 ## Em andamento
 - (nada)
 
 ## Próximo (em ordem)
-1. Paleta de cores dos candidatos (lista final: 12 candidatos, ver `presidente_t1_br.parquet`) — definir com o usuário.
-2. F2: mapa v1 em `web/` (MapLibre), Brasil → UF → município, usando `presidente_t1_municipio*.parquet`.
-3. Fixar `model:` no frontmatter dos agentes (`.claude/agents/`).
-4. Acompanhar `matematicamente_definido` (`md`) da BR — já `"s"` (2º turno) em 05/10/2026; quando `tf_judicial` virar `"s"`, `situacao`/`classificado` dos candidatos passam a ser confiáveis para saber quem avança. Nessa hora, revisar se a divergência de BA (`data/known_issues.csv`) finalmente convergiu.
+1. Usuário aprova (ou pede ajuste) da paleta de cores — ver `docs/img/paleta_preview.png` e as 2 decisões de design marcadas em `config/candidatos.yaml`.
+2. F2: mapa v1 em `web/` (MapLibre), Brasil → UF → município, usando `presidente_t1_municipio*.parquet` + `src/eleicao/cores.py`.
+3. Acompanhar `matematicamente_definido` (`md`) da BR — já `"s"` (2º turno) em 05/10/2026; quando `tf_judicial` virar `"s"`, `situacao`/`classificado` dos candidatos passam a ser confiáveis para saber quem avança. Rodar `scripts/verificar_atualizacoes.py` periodicamente até lá.
 
 ## Bloqueios / dúvidas abertas
-- **Divergência residual de BA (3 municípios) sem solução do nosso lado**: o backend do TSE segue servindo uma geração de 04/10 ~21:00 para `ba33693`/`ba34673`/`ba36013`, mesmo sob `--force`. Catalogada em `data/known_issues.csv`; todas as diferenças são < 0,02% dos totais da UF. Reavaliar periodicamente com `scripts/diagnostico_ba_mg.py` + `coletar_presidente.py --force --apenas ...`.
+- **Divergência residual de BA (3 municípios) sem solução do nosso lado**: confirmada de novo via `scripts/verificar_atualizacoes.py` nesta sessão — o backend do TSE segue servindo uma geração de 04/10 ~21:00 para `ba33693`/`ba34673`/`ba36013`, mesmo sob `--force`. Catalogada em `data/known_issues.csv`; todas as diferenças são < 0,02% dos totais da UF. Rodar `scripts/verificar_atualizacoes.py` periodicamente.
 - Data de publicação dos CSVs de seção/zona 2026 no Dados Abertos: desconhecida. Checar semanalmente.
+- **Ambiente Windows tem 2 outras instalações de conda/miniconda no `PATH` do sistema** (`C:\ProgramData\miniconda3` e `C:\Users\Usuário\miniconda3`, distintas de `C:\Users\Usuário\Miniconda3\envs\eleicao2026` usada pelo projeto) — causou `DeadKernelError` em matplotlib/Jupyter por conflito de DLL (`freetype`/`libpng`); contornado prefixando `PATH` com `...\envs\eleicao2026\Library\bin` antes de rodar o kernel. Não é um problema do projeto, mas vale limpar o `PATH` do sistema ou documentar o workaround se notebooks voltarem a travar.

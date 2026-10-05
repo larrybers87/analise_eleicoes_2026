@@ -343,4 +343,7 @@ não pelo parser).
   depois").
 - `data/known_issues.csv`: catálogo de divergências soma-município-vs-UF investigadas e sem
   conserto do lado do TSE (hoje, só BA — ver "Divergências reais" item 3). Lido por
-  `tests/test_invariantes.py`; qualquer divergência fora desse catálogo falha o teste.
+  `tests/test_invariantes.py` (qualquer divergência fora desse catálogo falha o teste) e por
+  `scripts/verificar_atualizacoes.py` (que extrai dinamicamente de `uf`/`cd_mun_tse` a lista de
+  itens a reverificar — nunca hardcoded). Coluna `cd_mun_tse`: vazia quando a divergência é só de
+  UF; quando há municípios associados, códigos TSE separados por `|` (ex. `33693|34673|36013`).
