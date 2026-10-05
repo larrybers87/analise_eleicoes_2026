@@ -34,7 +34,19 @@ Estratégia: fase 1 com a API JSON (município); fase 2 com os CSVs do Dados Abe
   - Acompanhamento: `dados/br/br-e006257-ab.json`, `dados/{uf}/{uf}-e006257-ab.json`
 - Join com IBGE: no config, cada município tem `cd` (TSE, 5 dígitos) e `cdi` (IBGE, 7 dígitos).
 - Exterior: UF `zz`; "municípios" são cidades no exterior (sem código IBGE → mapa por ponto/país).
-- Especificações oficiais (PDF): EA10 eleitos, EA11 config eleições, EA12 config municípios, EA14/EA15 acompanhamento, EA16 config seções, EA18 auxiliar de seção, EA20 resultado unificado. Página: https://www.tse.jus.br/eleicoes/informacoes-tecnicas-sobre-a-divulgacao-de-resultados — **baixar os PDFs para `docs/specs/`** antes de escrever o parser.
+- Especificações oficiais (PDF): EA10 eleitos, EA11 config eleições, EA12 config municípios, EA14/EA15 acompanhamento, EA16 config seções, EA18 auxiliar de seção, EA20 resultado unificado. Página: https://www.tse.jus.br/eleicoes/informacoes-tecnicas-sobre-a-divulgacao-de-resultados — **baixar os PDFs para `docs/specs/`** antes de escrever o parser. **Não conseguimos baixar em 05/10/2026** (ver Armadilhas); campos abaixo documentados por inspeção direta dos 3 JSONs reais (`mun-e006257-cm.json`, `br-c0001-e006257-u.json`, `pr75353-c0001-e006257-u.json`).
+
+### Estrutura real confirmada (validação 05/10/2026, ver `scripts/validar_fontes.py`)
+
+**Config de municípios (EA12, `mun-e006257-cm.json`)** — chaves de topo `dg`/`hg`/`idg` (data/hora/id de geração), `f`, e `abr`: lista com **28 abrangências** (27 UFs + `zz`=EXTERIOR), cada uma `{cd: sigla uf minúscula, ds: nome da UF, mu: [...]}`. Cada município em `mu[]`: `cd` (código TSE, 5 dígitos), `cdi` (código IBGE, 7 dígitos; **vazio `""` no exterior**, sem correspondente IBGE), `nm` (nome em caixa alta, UTF-8 válido — se aparecer corrompido no terminal é problema de codepage do console, não do arquivo), `c` (`"s"` para a capital da UF — exatamente 1 por UF, todas `"n"` em `zz`; é assim que achamos o código de Curitiba sem hardcode), `z` (lista de zonas eleitorais, string de 4 dígitos). Total **5.757 entradas** em `abr[].mu`: **5.571** municípios do Brasil (inclui DF) + **186** "municípios" do exterior (cidades, sem código IBGE).
+
+**Resultado unificado (EA20, `*-c0001-e006257-u.json`)** — mesmo schema em BR/UF/município, abrangência identificada por `tpabr` (`br`|`uf`|`mu`) + `cdabr`. Cabeçalho: `ele` (eleição), `t` (turno), `dg`/`hg` (geração), `dt`/`ht` (totalização), `and` (**status da totalização**: `"p"` parcial, `"f"` final — confirma a nota de Armadilhas sobre `and=f`), `md`.
+  - Bloco `s` (seções): `ts`/`st` (total), `snt` (não totalizadas), `si`/`sni` (informadas / não informadas), `sa`/`sna` (aptas / não aptas) — cada um com par `p<campo>` (% formatado `"99,99"`) e `p<campo>n` (% numérico `"99.991..."`, **usar este para cálculo**).
+  - Bloco `e` (eleitorado): `te`/`est` (total), `esnt`/`esi`/`esni` (idem seções), `esa`/`esna`, **`c` (comparecimento)**, **`a` (abstenção)**.
+  - Bloco `v` (votos): `tv` (total = `c`), `vv` (válidos), `vvc` (válidos computados, igual a `vv` nas amostras), `vnom` (nominais, = `vv` para Presidente — sem voto de legenda), `van` (anulados), `vansj` (**anulados sub judice** — `0` nas amostras), `vb` (brancos), **`tvn` (total de nulos) = `vn` (nulos comuns) + `vnt` (nulos "técnicos")**, `vsan`/`vscv` (0 nas amostras).
+  - `carg[]` (cargo Presidente): `fed[]` (federações partidárias), `agr[]` (agremiações: coligação `tp="c"` ou partido isolado `tp="i"`) → `agr.par[]` (partido: `n`, `sg`, `nm`, `nfed`) → `par.cand[]` (candidato: `n` número, `sqcand`, `nm` nome completo, `nmu` nome de urna, `seq` **posição de classificação** (1º, 2º...), `e` (eleito `"s"`/`"n"`), `st` (situação, vazio até decidido), `vap` **votos apurados**, `pvap`/`pvapn` **% sobre `vv`**, `vs[]` vice (`tp="v"`)).
+
+**Totalização ainda em curso em 05/10/2026**: no nível BR, `and="p"` com `s.sni=41` (41 seções sem dado ainda); no município de Curitiba, `and="f"` com `s.sni=0` (totalizado). Isso afeta os invariantes — ver Armadilhas.
 
 ### Armadilhas
 
@@ -45,6 +57,10 @@ Estratégia: fase 1 com a API JSON (município); fase 2 com os CSVs do Dados Abe
 - Campo `and` = `f` indica totalização final da abrangência (Presidente: município/UF quando `snt=0`; BR na totalização final).
 - Os JSONs são assinados (JWS) — verificação opcional, manual oficial na mesma página.
 - `robots.txt` bloqueia crawlers genéricos (WebFetch do Claude falha); acesso programático por script próprio é o uso previsto pelo TSE para "entidades divulgadoras" (sem cadastro, Res. TSE 23.751/2026, arts. 264–269).
+- **`www.tse.jus.br` e `divulgacandcontas.tse.jus.br` retornam 403 para o IP deste ambiente de execução** (inclusive a própria home e o `robots.txt` — bloqueio de rede/WAF, não é o rate limit de resultados). `resultados.tse.jus.br` (API de resultados) e `dadosabertos.tse.jus.br` funcionam normalmente. Consequência: não conseguimos baixar os PDFs EA12/EA20 nesta sessão; documentamos os campos por inspeção direta dos JSONs reais. Se precisar dos PDFs, baixar fora deste ambiente (rede doméstica) e colocar em `docs/specs/`.
+- `comparecimento + abstencao == eleitorado` (bloco `e`: `c + a == te`) só vale exatamente quando a abrangência está **totalizada** (`and == "f"` e `s.sni == 0`). Enquanto há seções não informadas (`s.sni > 0`, `and == "p"`), `e.c + e.a == e.esi` (eleitorado das seções já apuradas), que é menor que `e.te`. Confirmado comparando BR (parcial, `sni=41` em 05/10/2026 02:58) com Curitiba (final, `sni=0`).
+- `validos + brancos + nulos == comparecimento` vale usando **`v.tvn`** (total de nulos) como "nulos" — não `v.vn` isolado. `v.tvn = v.vn + v.vnt` (nulos comuns + nulos "técnicos"). Ou seja: `v.vv + v.vb + v.tvn == v.tv == e.c`.
+- `v.vansj` (votos anulados sub judice) existe como campo mas veio `"0"` nas 3 amostras — tratamento à parte só será necessário se algum caso tiver valor > 0.
 
 ## 2. Portal de Dados Abertos (dadosabertos.tse.jus.br)
 
@@ -61,10 +77,13 @@ Estratégia: fase 1 com a API JSON (município); fase 2 com os CSVs do Dados Abe
 
 ## Schemas normalizados (alvo, `data/processed/`)
 
+Confirmado contra os JSONs reais (ver seção "Estrutura real confirmada" acima); mapeamento origem → coluna:
+
 `presidente_t1_municipio.parquet` (uma linha por município × candidato):
 `uf, cd_mun_tse, cd_mun_ibge, nm_mun, nr_candidato, nm_candidato, partido, votos, pct_validos`
+- `cd_mun_tse` ← `cdabr`/`cd` (5 díg.); `cd_mun_ibge` ← `cdi` (7 díg., **nulo no exterior**); `nr_candidato`/`nm_candidato` ← `cand.n`/`cand.nmu`; `partido` ← `par.sg`; `votos` ← `cand.vap`; `pct_validos` ← `cand.pvapn` (numérico, não `pvap` formatado).
 
 `presidente_t1_municipio_totais.parquet` (uma linha por município):
 `uf, cd_mun_tse, cd_mun_ibge, eleitorado, comparecimento, abstencao, brancos, nulos, validos, secoes_totalizadas, secoes_total, totalizacao_final`
-
-(A confirmar contra a spec EA20 — nomes dos campos do JSON a mapear em `src/eleicao/parse_ea20.py`.)
+- `eleitorado` ← `e.te`; `comparecimento` ← `e.c`; `abstencao` ← `e.a`; `brancos` ← `v.vb`; `nulos` ← `v.tvn` (**não `v.vn`**, ver Armadilhas); `validos` ← `v.vv`; `secoes_totalizadas` ← `s.si`; `secoes_total` ← `s.ts`; `totalizacao_final` ← `and == "f"` (equivalente a `s.sni == 0`).
+- Invariante `comparecimento + abstencao == eleitorado` só é exato quando `totalizacao_final` é verdadeiro (ver Armadilhas); testes de invariante devem checar isso condicionalmente ou usar `e.esi` como base quando parcial.
