@@ -1,7 +1,15 @@
 import pytest
 from coloraide import Color
 
-from eleicao.cores import carregar_paleta, mistura_oklab, vencedor_margem
+from eleicao.cores import (
+    COR_OUTROS,
+    MARGEM_SATURACAO,
+    NEUTRO_EMPATE_HEX,
+    agrupar_outros,
+    carregar_paleta,
+    mistura_oklab,
+    vencedor_margem,
+)
 
 PALETA = carregar_paleta()
 
@@ -76,17 +84,68 @@ def test_vencedor_margem_escolhe_quem_tem_mais_votos():
     assert abs(h_pl - h_resultado) < 1.0
 
 
-def test_vencedor_margem_empate_reduz_croma_mas_nao_zera():
+def test_vencedor_margem_empate_e_neutro():
+    # Margem exatamente 0 -> tom neutro exato (NEUTRO_EMPATE_HEX), croma 0.
     empate = vencedor_margem({13: 500, 22: 500}, PALETA)
-    c_empate = Color(empate).convert("oklch")[1]
-    c_pt = Color(PALETA[13]).convert("oklch")[1]
-    # Empate (margem=0): croma cai para 15% do original, pela fórmula
-    # documentada (tolerância pela quantização do hex intermediário).
-    assert abs(c_empate - c_pt * 0.15) < 2e-3
-    assert c_empate > 0  # nunca zera
+    assert empate == NEUTRO_EMPATE_HEX
+    assert Color(empate).convert("oklch")[1] < 1e-6  # croma ~0
+
+
+def test_vencedor_margem_empate_e_igual_para_qualquer_par():
+    # Empate exato entre PT/PL e empate exato entre Cury/Renan devem dar a
+    # MESMA cor neutra — a identidade do "vencedor" não pode vazar para o
+    # resultado quando margem=0 (a fórmula nem usa a cor do vencedor nesse
+    # ponto). Testa também as duas ordens de inserção do dict (o "vencedor"
+    # detectado por sorted() pode mudar conforme a ordem em caso de empate).
+    empate_pt_pl_a = vencedor_margem({13: 500, 22: 500}, PALETA)
+    empate_pt_pl_b = vencedor_margem({22: 500, 13: 500}, PALETA)
+    empate_outro_par = vencedor_margem({70: 500, 14: 500}, PALETA)
+
+    assert empate_pt_pl_a == empate_pt_pl_b == empate_outro_par == NEUTRO_EMPATE_HEX
+
+
+def test_vencedor_margem_teto_saturacao():
+    # margem == MARGEM_SATURACAO (exatamente) -> já é a cor plena do vencedor.
+    total = 1000
+    diferenca = int(MARGEM_SATURACAO * total)
+    votos_1 = (total + diferenca) // 2
+    votos_2 = total - votos_1
+    assert (votos_1 - votos_2) / total == pytest.approx(MARGEM_SATURACAO)
+
+    resultado = vencedor_margem({13: votos_1, 22: votos_2}, PALETA)
+    assert resultado == PALETA[13]
 
 
 def test_vencedor_margem_cresce_monotonicamente_com_a_margem():
     cores = [vencedor_margem({13: 500 + m, 22: 500 - m}, PALETA) for m in (0, 100, 300, 499)]
     cromas = [Color(c).convert("oklch")[1] for c in cores]
     assert cromas == sorted(cromas)
+    assert cromas[0] < 1e-6  # primeiro ponto (margem=0) é o tom neutro, croma ~0
+
+
+def test_agrupar_outros_soma_bate_e_individualiza_maiores():
+    # total=1000; candidatos 1 e 2 ficam >=1% (limiar padrão); 3,4,5 somam <1% cada.
+    votos = {1: 500, 2: 480, 3: 9, 4: 7, 5: 4}
+    agrupado = agrupar_outros(votos)
+
+    assert sum(agrupado.values()) == sum(votos.values())
+    assert agrupado[1] == 500
+    assert agrupado[2] == 480
+    assert agrupado["outros"] == 9 + 7 + 4
+    assert 3 not in agrupado and 4 not in agrupado and 5 not in agrupado
+
+
+def test_agrupar_outros_sem_ninguem_abaixo_do_limiar():
+    votos = {1: 600, 2: 400}
+    agrupado = agrupar_outros(votos)
+    assert agrupado == votos
+    assert "outros" not in agrupado
+
+
+def test_agrupar_outros_rejeita_soma_zero():
+    with pytest.raises(ValueError):
+        agrupar_outros({1: 0, 2: 0})
+
+
+def test_cor_outros_e_acromatica():
+    assert Color(COR_OUTROS).convert("oklch")[1] < 1e-6

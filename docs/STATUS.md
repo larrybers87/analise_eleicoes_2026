@@ -1,6 +1,6 @@
 # STATUS
 
-Última atualização: 2026-10-05 — modelo dos agentes fixado, rotina de verificação e paleta de cores propostas (aguardando aprovação do usuário).
+Última atualização: 2026-10-05 — paleta de cores revisada (D-014) após feedback do usuário, aguardando aprovação final.
 
 ## Feito
 - Estrutura de pastas, `CLAUDE.md`, docs (`DADOS.md`, `DECISOES.md`, `ROADMAP.md`), `.gitignore`, `environment.yml`, `pyproject.toml`.
@@ -17,13 +17,14 @@
 - `data/processed/snapshot_6257.json`: geração exata (`idg`/`dg`/`hg`) do arquivo BR + horários da coleta completa e da atualização dirigida BA/MG — registra "a que versão do TSE" os Parquet correspondem.
 - **Agentes**: `model: sonnet` fixado no frontmatter de `coletor-tse` e `analista-eleitoral` (D-012); futuro agente de mapa (F2) nasce com `model: opus`.
 - `scripts/verificar_atualizacoes.py`: rotina de manutenção — rebaixa com `--force` só o BR e os itens de `data/known_issues.csv` (UF/município extraídos dinamicamente da coluna `cd_mun_tse`, agora populada e pipe-separada), compara geração com `snapshot_6257.json`, e só reprocessa Parquet/roda testes/atualiza known_issues se algo mudou. Uso documentado no `README.md`. Testado 2x nesta sessão: divergência de BA **ainda não convergiu** do lado do TSE.
-- **Paleta de cores (proposta, aguardando aprovação)**: `config/candidatos.yaml` (12 candidatos, cor hex por regra principal/secundário/menor), `src/eleicao/cores.py` (`mistura_oklab`, `vencedor_margem`, `simular_daltonismo`, `distancia_oklab`), `tests/test_cores.py` (12 testes, caso-limite/ponto-médio-independente/invariância de escala), `notebooks/01_paleta.ipynb` + `docs/img/paleta_preview.png` (preview com swatches, gradiente PT↔PL nos 2 modos, mapa das 27 UFs nos 2 modos, simulação de deuteranopia). PT×PL: ΔL=0,0008, ΔE (OKLab) 0,353 visão normal / 0,289 protanopia / 0,309 deuteranopia — todos acima do limiar adotado (0,10). Duas decisões de design documentadas no próprio YAML para revisão do usuário (uso de verde dessaturado no 3º colocado; croma dos candidatos menores ajustado de 0,05→0,07).
+- **Paleta de cores — v1 proposta** (D-013): `config/candidatos.yaml`, `src/eleicao/cores.py` (`mistura_oklab`, `vencedor_margem` v1, `simular_daltonismo`, `distancia_oklab`), preview em `notebooks/01_paleta.ipynb`/`docs/img/paleta_preview.png` (mapa por UF).
+- **Paleta de cores — v2, revisão pedida pelo usuário** (D-014): faixa de matiz `FAIXA_RESERVADA_PT_PL` (260°–30° em OKLCH, medida varrendo o gradiente PT↔PL) reservada só para a mistura PT×PL — nenhum outro candidato pode cair nela; Renan Santos (4º) movido para ciano (H=200°), Ronaldo Caiado (5º) promovido a croma médio em âmbar (H=75°, antes croma baixo), os 7 candidatos <1% dos válidos viraram CINZA (C=0, `L` espaçado 0,35–0,77) em vez de hues de croma baixo (colidiam sob deuteranopia, ΔE~0,5–2,6). `vencedor_margem` reescrito: `MARGEM_SATURACAO=0.40` (40pp já satura), interpolação linear em OKLab entre `NEUTRO_EMPATE_HEX` (acromático, L=0,92 — empate exato não carrega hue de nenhum candidato) e a cor plena do vencedor. Nova `agrupar_outros`/`COR_OUTROS` para legendas (não usada no mapa). Achado documentado para revisão: Caiado (âmbar) × PT (vermelho) tem ΔE=0,063 sob deuteranopia (abaixo do limiar 0,10) — limite físico de tons âmbar nesse tipo de daltonismo, testado e não contornável dentro do pedido "âmbar/ocre". `tests/test_cores.py`: 18 testes. Preview atualizado (`notebooks/01_paleta.ipynb`/`docs/img/paleta_preview.png`): disco de matiz OKLCH com a faixa marcada, tabela de ΔE entre 3º/4º/5º colocados, mapas por MUNICÍPIO (antes só UF) nos 2 modos + simulação de deuteranopia, mapa de UF mantido como referência menor.
 
 ## Em andamento
 - (nada)
 
 ## Próximo (em ordem)
-1. Usuário aprova (ou pede ajuste) da paleta de cores — ver `docs/img/paleta_preview.png` e as 2 decisões de design marcadas em `config/candidatos.yaml`.
+1. Usuário aprova (ou pede novo ajuste) da paleta de cores v2 — ver `docs/img/paleta_preview.png` e as 3 decisões de design marcadas em `config/candidatos.yaml` (cinza nos candidatos <1%; Caiado âmbar com ΔE baixo contra PT sob deuteranopia).
 2. F2: mapa v1 em `web/` (MapLibre), Brasil → UF → município, usando `presidente_t1_municipio*.parquet` + `src/eleicao/cores.py`.
 3. Acompanhar `matematicamente_definido` (`md`) da BR — já `"s"` (2º turno) em 05/10/2026; quando `tf_judicial` virar `"s"`, `situacao`/`classificado` dos candidatos passam a ser confiáveis para saber quem avança. Rodar `scripts/verificar_atualizacoes.py` periodicamente até lá.
 

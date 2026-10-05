@@ -1,4 +1,4 @@
-"""Cor do mapa de resultados — mistura ponderada em OKLab (docs/DECISOES.md D-004).
+"""Cor do mapa de resultados — mistura ponderada em OKLab (docs/DECISOES.md D-004, D-013, D-014).
 
 Dois modos de colorir uma região (município/UF/zona) a partir dos votos
 válidos dos candidatos nela:
@@ -7,8 +7,9 @@ válidos dos candidatos nela:
   perceptualmente uniforme — mistura em RGB puro gera tons barrentos/
   acinzentados de forma não intuitiva). Com 3+ candidatos fortes tende a
   cinza (ver ressalva em D-004); é por isso que existe o segundo modo.
-- `vencedor_margem`: cor do candidato vencedor, com croma/luminosidade
-  escalados pela margem sobre o 2º colocado (fórmula exata no docstring da
+- `vencedor_margem`: cor do candidato vencedor, interpolada em OKLab entre
+  um tom neutro claro (margem apertada) e a cor plena do vencedor (margem
+  folgada), com teto em `MARGEM_SATURACAO` (fórmula exata no docstring da
   função). Mantém a região legível mesmo quando a mistura ponderada
   colapsaria para cinza.
 
@@ -19,8 +20,10 @@ NÃO entram em nenhuma das duas funções — são métricas separadas (ver
 deve passar só votos válidos por candidato.
 
 Também expõe `simular_daltonismo`/`distancia_oklab`, usados no preview
-(`notebooks/01_paleta.ipynb`) para verificar a distinguibilidade de PT/PL
-sob deuteranopia/protanopia (regra (b) da tarefa de paleta).
+(`notebooks/01_paleta.ipynb`) para verificar a distinguibilidade de PT/PL e
+dos 3º/4º/5º colocados sob deuteranopia/protanopia, e `agrupar_outros`/
+`COR_OUTROS`, usados para a categoria agregada "Outros" em gráficos/
+legendas (NÃO no mapa — ver docstring de `agrupar_outros`).
 """
 
 from __future__ import annotations
@@ -33,6 +36,21 @@ from coloraide import Color
 from . import config as _config
 
 CAMINHO_PALETA = _config.RAIZ / "config" / "candidatos.yaml"
+
+FAIXA_RESERVADA_PT_PL = (260.0, 30.0)
+"""Faixa de matiz (graus, OKLCH) reservada para a mistura PT×PL — nenhum
+outro candidato pode ter `h` dentro dela (D-014). A faixa cruza o ponto
+0°/360°: vai de `FAIXA_RESERVADA_PT_PL[0]` (260°) até 360°, depois de 0°
+até `FAIXA_RESERVADA_PT_PL[1]` (30°).
+
+Calculada varrendo `mistura_oklab` entre PL (`#306adb`) e PT (`#d01f17`) de
+0% a 100% em passos finos e convertendo cada ponto para OKLCH: o matiz
+percorrido vai de H=261,92° (PL puro) a H=29,04° (PT puro),
+monotonicamente, passando por roxo/magenta/rosa — nunca por verde/amarelo
+(ver `config/candidatos.yaml`). Os limites acima (260°/30°) arredondam esse
+intervalo medido (261,92°–29,04°) para fora por ~2° de margem de segurança,
+para não colar exatamente na borda medida e sobrar folga para
+arredondamento de ponto flutuante/ajuste de gamute."""
 
 
 def carregar_paleta(caminho: Path | None = None) -> dict[int, str]:
@@ -100,31 +118,71 @@ def mistura_oklab(votos_por_candidato: dict[int, int], paleta: dict[int, str]) -
     return _hex_de_oklab(l_acc, a_acc, b_acc)
 
 
+MARGEM_SATURACAO = 0.40
+"""Margem (fração dos votos do vencedor sobre o 2º colocado, 0 a ~1) a
+partir da qual `vencedor_margem` já devolve a cor plena do vencedor.
+
+Escolha de design (D-014): 40 pontos percentuais foi escolhido para que
+vitórias "confortáveis" (ainda bem longe de unanimidade) já leiam como cor
+plena no mapa — o regime de atenuação (tom claro → cor plena) fica
+reservado para as disputas de fato apertadas (margem < 40pp), que são o
+caso mais informativo de diferenciar visualmente região a região. Acima de
+40pp, diferenças adicionais de margem (ex. 60pp vs 95pp) já não mudam a cor
+— achamos que a granularidade de cor não precisa escalar até unanimidade
+para ser útil, e um teto evita que a maior parte do mapa fique "desbotada"
+numa eleição polarizada como a de 2026 (PT×PL, margens nacionais na casa de
+poucos pontos percentuais — ver `presidente_t1_br.parquet`)."""
+
+NEUTRO_EMPATE_OKLAB = (0.92, 0.0, 0.0)
+"""Tom usado por `vencedor_margem` quando margem=0 (empate exato): OKLab
+`L=0.92` (claro, próximo do branco mas não puro — ainda se distingue do
+fundo branco de uma página/mapa), `a=b=0` (perfeitamente acromático, C=0).
+Por ser acromático, esse tom não carrega nenhum traço do matiz do
+"vencedor" do empate — ver docstring de `vencedor_margem`."""
+
+NEUTRO_EMPATE_HEX = _hex_de_oklab(*NEUTRO_EMPATE_OKLAB)
+
+COR_OUTROS_OKLAB = (0.6, 0.0, 0.0)
+"""Cinza médio (OKLab `L=0.6`, acromático) usado para a categoria agregada
+"Outros" em gráficos/legendas (`agrupar_outros`). Deliberadamente diferente
+de `NEUTRO_EMPATE_OKLAB`: aquele é um tom claro "lavado" que sinaliza
+"empate/sem distinção" num mapa; este é um cinza de leitura normal para uma
+barra/fatia de legenda comum, não deve parecer "apagado"."""
+
+COR_OUTROS = _hex_de_oklab(*COR_OUTROS_OKLAB)
+
+
 def vencedor_margem(votos_por_candidato: dict[int, int], paleta: dict[int, str]) -> str:
-    """Cor do vencedor (quem tem mais votos no dict), com intensidade pela margem.
+    """Cor do vencedor (quem tem mais votos no dict), interpolada pela margem.
 
     `votos_por_candidato`: `{nr_candidato: votos}`, só votos válidos (mesma
     regra de `mistura_oklab`).
 
-    Fórmula (determinística, em OKLCH — luminosidade `L`, croma `C`, matiz
-    `H` da cor do vencedor na paleta):
+    Fórmula (determinística, interpolação linear em OKLab entre o tom
+    neutro `NEUTRO_EMPATE_OKLAB` e a cor do vencedor na paleta):
 
-        margem = (votos_1º - votos_2º) / total_votos   # 0 (empate) .. ~1 (quase unânime)
-        t      = clamp(margem, 0, 1)
-        C'     = C * (0.15 + 0.85 * t)
-        L'     = L + (1 - t) * (1 - L) * 0.5
-        H'     = H                                      # matiz não muda
+        margem = (votos_1º - votos_2º) / total_votos        # 0 (empate) .. ~1 (quase unânime)
+        r      = clamp(margem / MARGEM_SATURACAO, 0, 1)      # MARGEM_SATURACAO = 0.40
+        L'     = L_neutro + r * (L_vencedor - L_neutro)
+        a'     = a_neutro + r * (a_vencedor - a_neutro)       # a_neutro = 0
+        b'     = b_neutro + r * (b_vencedor - b_neutro)       # b_neutro = 0
 
-    Com `t=1` (só 1 candidato no dict, ou 2º colocado com 0 votos), `C'=C` e
-    `L'=L`: devolve exatamente `paleta[vencedor]`. Com `t=0` (empate exato
-    com o 2º colocado), o croma cai para 15% do original (nunca zero — um
-    piso deliberado para a cor do vencedor continuar reconhecível mesmo numa
-    vitória apertadíssima, em vez de colapsar para cinza) e a luminosidade
-    sobe até a meio caminho do branco (fator 0,5, também deliberado: clareia
-    visivelmente sem lavar a cor por completo). Os dois coeficientes (0.15 e
-    0.5) são escolhas de design desta tarefa — não derivados de nenhuma
-    norma — e podem ser recalibrados depois de ver o preview em
-    `notebooks/01_paleta.ipynb`.
+    Essa única interpolação já cobre os dois regimes: em `r=0` (margem=0,
+    empate exato), o resultado é exatamente `NEUTRO_EMPATE_HEX` — e a cor do
+    vencedor *nem entra na conta* nesse ponto (o termo `r * (a_vencedor -
+    a_neutro)` zera quando `r=0`, não importa o valor de `a_vencedor`), por
+    isso dois empates exatos entre candidatos diferentes sempre dão a MESMA
+    cor neutra, sem viés de matiz para nenhum lado (ver
+    `tests/test_cores.py::test_vencedor_margem_empate_e_igual_para_qualquer_par`).
+    Em `r=1` (margem >= `MARGEM_SATURACAO`), o resultado é exatamente
+    `paleta[vencedor]` — não precisa de um `if` separado para "cor plena",
+    o clamp de `r` a 1 já produz isso.
+
+    "Claro = margem apertada, escuro = margem folgada": como
+    `NEUTRO_EMPATE_OKLAB` tem `L=0.92`, mais claro que qualquer cor da
+    paleta (as cores de `config/candidatos.yaml` têm `L` entre ~0.35 e
+    ~0.68), a interpolação sempre vai de claro (`r=0`) para mais escuro
+    (`r=1`, a cor plena do vencedor) — nunca o contrário.
     """
     if not votos_por_candidato:
         raise ValueError("votos_por_candidato não pode ser vazio")
@@ -139,16 +197,56 @@ def vencedor_margem(votos_por_candidato: dict[int, int], paleta: dict[int, str])
         raise KeyError(f"candidato {nr_vencedor} não está na paleta recebida")
 
     margem = (votos_1 - votos_2) / total
-    t = max(0.0, min(1.0, margem))
+    r = max(0.0, min(1.0, margem / MARGEM_SATURACAO))
 
-    lum, c, h = Color(paleta[nr_vencedor]).convert("oklch")[:3]
-    c_final = c * (0.15 + 0.85 * t)
-    l_final = lum + (1 - t) * (1 - lum) * 0.5
+    l_v, a_v, b_v = _oklab(paleta[nr_vencedor])
+    l_n, a_n, b_n = NEUTRO_EMPATE_OKLAB
 
-    resultado = Color("oklch", [l_final, c_final, h])
-    if not resultado.in_gamut("srgb"):
-        resultado = resultado.fit("srgb")
-    return resultado.convert("srgb").to_string(hex=True)
+    l_final = l_n + r * (l_v - l_n)
+    a_final = a_n + r * (a_v - a_n)
+    b_final = b_n + r * (b_v - b_n)
+
+    return _hex_de_oklab(l_final, a_final, b_final)
+
+
+def agrupar_outros(
+    votos_por_candidato: dict[int, int], limiar: float = 0.01
+) -> dict[int | str, int]:
+    """Agrupa candidatos com menos de `limiar` (fração do total do dict) em `"outros"`.
+
+    Uso: gráficos/legendas — NÃO o mapa. `mistura_oklab`/`vencedor_margem`
+    continuam recebendo os votos de TODOS os candidatos individualmente;
+    agrupar antes mudaria o resultado da mistura ponderada (perderia peso
+    de voto real, mesmo que pequeno). `agrupar_outros` serve só para reduzir
+    o número de fatias/barras numa legenda ou gráfico de barras.
+
+    `limiar` é relativo ao total do próprio dict recebido (não a um total
+    nacional fixo), então a função funciona em qualquer recorte — Brasil,
+    UF, município, ou qualquer agregação que o chamador já tenha montado.
+
+    Retorna um novo dict: candidatos com `votos / total >= limiar` mantêm a
+    própria chave (`nr_candidato`); os demais são somados sob a chave string
+    `"outros"` (ausente do dict de saída se nenhum candidato ficar abaixo de
+    `limiar`). A soma de todos os valores do dict retornado é sempre igual à
+    soma de `votos_por_candidato` — nenhum voto é descartado, só reagrupado.
+    Use `COR_OUTROS` como cor da fatia/barra `"outros"`.
+    """
+    total = sum(votos_por_candidato.values())
+    if total <= 0:
+        raise ValueError("soma de votos_por_candidato deve ser positiva")
+
+    agrupado: dict[int | str, int] = {}
+    outros = 0
+    for nr, votos in votos_por_candidato.items():
+        if votos < 0:
+            raise ValueError(f"votos negativos para o candidato {nr}")
+        if votos / total < limiar:
+            outros += votos
+        else:
+            agrupado[nr] = votos
+    if outros > 0:
+        agrupado["outros"] = outros
+    return agrupado
 
 
 def simular_daltonismo(cor_hex: str, tipo: str = "deutan", severidade: float = 1.0) -> str:
