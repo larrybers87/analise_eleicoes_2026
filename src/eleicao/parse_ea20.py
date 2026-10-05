@@ -5,7 +5,9 @@ Funções puras: recebem os bytes exatos do JSON (como gravados em
 lê o arquivo e empilha o resultado de várias chamadas é o código de
 orquestração (``scripts/processar_presidente.py``).
 
-Mapeamento de campos: ver "Estrutura real confirmada" em `docs/DADOS.md`.
+Mapeamento de campos: ver "Estrutura real confirmada" em `docs/DADOS.md`,
+conferido contra a especificação oficial em
+``docs/specs/tse-ea20-arquivo-de-resultado-unificado.pdf`` (05/10/2026).
 Campos conhecidos mas não solicitados explicitamente no schema alvo (ex.:
 percentuais formatados, que são derivados dos contadores já capturados) são
 preservados em colunas ``extra_*`` — nada é descartado silenciosamente.
@@ -17,7 +19,7 @@ import json
 
 import pandas as pd
 
-_ABRANGENCIA_POR_TPABR = {"br": "br", "uf": "uf", "mu": "mun"}
+_ABRANGENCIA_POR_TPABR = {"br": "br", "uf": "uf", "mu": "mun", "zona": "zona"}
 
 
 def _int(valor: str | None) -> int | None:
@@ -70,7 +72,7 @@ def parse_ea20(
     e = dado["e"]
     v = dado["v"]
 
-    status_totalizacao = dado["and"]  # "f" = final, "p" = parcial
+    status_totalizacao = dado["and"]  # "f" = final, "p" = parcial, "n" = não iniciada
     data_hora_totalizacao = f"{dado['dt']} {dado['ht']}"
 
     totais = {
@@ -90,9 +92,17 @@ def parse_ea20(
         "secoes_total": _int(s["ts"]),
         "status_totalizacao": status_totalizacao,
         "data_hora_totalizacao": data_hora_totalizacao,
-        # anulados / sub judice (pedido explicitamente, ver docs/DADOS.md)
+        # anulados / sub judice (pedido explicitamente, ver docs/DADOS.md).
+        # Confirmado pela spec EA20 pg.21: "van" = Votos Anulados (candidatura
+        # anulada), "vansj" = Votos Anulados Sub Judice (anulação em disputa
+        # judicial) — ambos distintos de "nulos" (voto inválido na urna).
         "anulados": _int(v["van"]),
         "anulados_sub_judice": _int(v["vansj"]),
+        # campos-raiz confirmados pela spec (pg.9-10), não capturados na
+        # etapa 2 original — ver docs/DADOS.md "Confronto com a spec oficial"
+        "matematicamente_definido": dado.get("md"),  # "e" eleito | "s" 2º turno | ausente
+        "tf_judicial": dado.get("tf"),  # totalização FINAL (juiz), distinto de "and"
+        "divulga_votacao": dado.get("dv"),
         # extras de "v": contadores adicionais não mapeados para coluna própria
         # (percentuais formatados foram deliberadamente omitidos — são
         # derivados dos contadores abaixo; ver docs/DADOS.md).
@@ -101,16 +111,24 @@ def parse_ea20(
         "extra_v_vnt": _int(v.get("vnt")),
         "extra_v_vsan": _int(v.get("vsan")),
         "extra_v_vscv": _int(v.get("vscv")),
-        # extras de "s"/"e": contagens de seções/eleitorado não informadas
-        # ainda (relevante enquanto status_totalizacao == "p")
+        # extras de "s"/"e": contagens de seções/eleitorado não totalizadas/
+        # não instaladas — ESSENCIAIS (não meramente informativas) para o
+        # invariante correto de comparecimento+abstencao, ver docs/DADOS.md
         "extra_s_snt": _int(s.get("snt")),
         "extra_s_sni": _int(s.get("sni")),
         "extra_s_sa": _int(s.get("sa")),
         "extra_s_sna": _int(s.get("sna")),
+        "extra_e_est": _int(e.get("est")),
+        "extra_e_esnt": _int(e.get("esnt")),
         "extra_e_esi": _int(e.get("esi")),
         "extra_e_esni": _int(e.get("esni")),
         "extra_e_esa": _int(e.get("esa")),
         "extra_e_esna": _int(e.get("esna")),
+        # extras raros, quase sempre ausentes/zero nesta eleição, mas
+        # preservados por completude (ver docs/DADOS.md)
+        "extra_sup": dado.get("sup"),
+        "extra_esae": dado.get("esae"),
+        "extra_mnae": dado.get("mnae"),
     }
     df_totais = pd.DataFrame([totais])
 
@@ -129,8 +147,16 @@ def parse_ea20(
                             "partido": par["sg"],
                             "votos": _int(cand["vap"]),
                             "pct_validos": _float(cand["pvapn"]),
-                            # situação / destinação do voto, ver docs/DADOS.md
-                            "eleito": {"s": True, "n": False}.get(cand.get("e")),
+                            # Campo "e" da spec (EA20 pg.13-14): "s" significa
+                            # "está eleito OU disputará o cargo no 2º turno"
+                            # — NÃO é só "eleito" (nome da coluna evita essa
+                            # ambiguidade; "situacao" abaixo desambigua
+                            # quando/se a spec populá-lo). Ver docs/DADOS.md.
+                            "classificado": {"s": True, "n": False}.get(cand.get("e")),
+                            # "st" (Situação): só preenchido após totalização
+                            # final; valores possíveis incluem "Eleito",
+                            # "Eleito por QP", "Eleito por média", "Não
+                            # eleito", "2º turno", "Suplente" (spec pg.14).
                             "situacao": cand.get("st") or None,
                             # extras não descartados
                             "extra_cand_nm_completo": cand.get("nm"),
@@ -139,8 +165,13 @@ def parse_ea20(
                             "extra_cand_dvt": cand.get("dvt"),
                             "extra_partido_nm": par.get("nm"),
                             "extra_partido_nfed": par.get("nfed") or None,
+                            "extra_partido_tvtn": _int(par.get("tvtn")),
+                            "extra_partido_tvan": _int(par.get("tvan")),
                             "extra_agremiacao_tipo": agr.get("tp"),
                             "extra_agremiacao_nome": agr.get("nm"),
+                            "extra_agremiacao_vag": _int(agr.get("vag")),
+                            "extra_agremiacao_tvtn": _int(agr.get("tvtn")),
+                            "extra_agremiacao_tvan": _int(agr.get("tvan")),
                             "extra_vice_nm_urna": vice.get("nmu"),
                             "extra_vice_sqcand": vice.get("sqcand"),
                         }
