@@ -5,8 +5,12 @@ data/interim/*
 !data/interim/.gitkeep
 # Processados grandes (manter só os leves que o web/ consome)
 data/processed/*.parquet
-data/processed/*secao*
 !data/processed/.gitkeep
+# Seção/zona: dados grandes futuros (~470 mil seções, F4) — bloqueados por nome
+# de arquivo em qualquer extensão (não só .parquet, que já cai no bloqueio
+# acima: isso cobre também .csv, que não tem bloqueio geral em data/processed/)
+data/processed/*secao*
+data/processed/*zona*
 # Parquet pequenos (nível município/UF/BR, ~1.3MB total em 05/10/2026) — ok versionar
 !data/processed/presidente_t1_br.parquet
 !data/processed/presidente_t1_br_totais.parquet

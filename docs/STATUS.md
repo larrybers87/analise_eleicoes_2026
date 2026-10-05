@@ -1,6 +1,6 @@
 # STATUS
 
-Última atualização: 2026-10-05 — mapa publicado no GitHub Pages via Actions.
+Última atualização: 2026-10-05 — auditoria do que está versionado (D-017): AGENTS.md removido, notebook limpo com nbstripout, .gitignore reforçado.
 
 ## Feito
 - Estrutura de pastas, `CLAUDE.md`, docs (`DADOS.md`, `DECISOES.md`, `ROADMAP.md`), `.gitignore`, `environment.yml`, `pyproject.toml`.
@@ -39,6 +39,13 @@
 ## Publicação
 - **Site**: https://larrybers87.github.io/analise_eleicoes_2026/ — deploy automático via `.github/workflows/pages.yml` (push em `main` tocando `web/**`, ou `workflow_dispatch`). GitHub Pages do repositório já estava configurado com `build_type: workflow` (`gh api repos/.../pages`) — não precisou de ativação manual adicional.
 - Caminhos em `web/` confirmados relativos (sem barra inicial) e testados servindo de um diretório pai para simular o subcaminho `/analise_eleicoes_2026/` do Pages.
+
+## Auditoria do repositório (D-017)
+- `AGENTS.md` removido (redundante com `CLAUDE.md`, sem referências em outros arquivos).
+- `git ls-files`: 123 arquivos, 14,4MB — `web/` 7,45MB, `docs/` 3,45MB, `data/` 1,65MB (só os 6 Parquet pequenos de D-007 + `known_issues.csv` + `snapshot_6257.json`), resto <0,1MB cada. Nenhum arquivo de SO/editor, cache ou dado bruto rastreado por engano.
+- **`notebooks/01_paleta.ipynb` tinha 1,76MB de outputs de imagem em base64** (duplicava `docs/img/paleta_preview.png`) — limpo com `nbstripout` (caiu para 21KB). Histórico **não** foi reescrito (pedido do usuário) — os commits antigos continuam com o notebook pesado, só os futuros ficam limpos.
+- `nbstripout` instalado como filtro git (`nbstripout --install --attributes .gitattributes`) + adicionado a `environment.yml`. **Precisa rodar `nbstripout --install` de novo em qualquer clone novo** (documentado no README/setup) — o `.gitattributes` é versionado, mas o hook do filtro é local.
+- `.gitignore`: bloqueio explícito por nome (`data/processed/*secao*`, `data/processed/*zona*`) para os futuros dados grandes de seção/zona (F4), cobrindo também `.csv` (o bloqueio geral `*.parquet` já cobria parquet, mas não csv). Testado com `git check-ignore` em 9 casos — todos corretos.
 
 ## Bloqueios / dúvidas abertas
 - **Divergência residual de BA (3 municípios) sem solução do nosso lado**: confirmada de novo via `scripts/verificar_atualizacoes.py` nesta sessão — o backend do TSE segue servindo uma geração de 04/10 ~21:00 para `ba33693`/`ba34673`/`ba36013`, mesmo sob `--force`. Catalogada em `data/known_issues.csv`; todas as diferenças são < 0,02% dos totais da UF. Rodar `scripts/verificar_atualizacoes.py` periodicamente.

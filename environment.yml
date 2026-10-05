@@ -16,6 +16,7 @@ dependencies:
   - plotly
   - jupyterlab
   - ipykernel
+  - nbstripout   # filtro git: limpa outputs de .ipynb no commit (rodar `nbstripout --install` após clonar)
   - tqdm
   - pyyaml      # carrega config/candidatos.yaml (paleta de cores)
   - ruff

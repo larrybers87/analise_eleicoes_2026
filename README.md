@@ -23,6 +23,15 @@ python -c "import eleicao, geobr, duckdb; print('ok')"
 
 No VS Code: `Ctrl+Shift+P` → *Python: Select Interpreter* → `eleicao2026`.
 
+Depois (uma vez por clone — não é global, fica no `.git/config` local): instale o filtro
+que limpa outputs de notebook antes de cada commit, para não versionar imagens
+embutidas em `.ipynb` (`.gitattributes` já diz quais arquivos passam pelo filtro,
+mas o hook em si precisa ser registrado a cada clone novo):
+
+```bash
+nbstripout --install --attributes .gitattributes
+```
+
 ## Coleta e processamento (Presidente 1º turno)
 
 ```bash
