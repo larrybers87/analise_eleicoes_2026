@@ -1,0 +1,28 @@
+# Dados brutos e intermediários (grandes, reproduzíveis pelo coletor)
+data/raw/*
+data/interim/*
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+# Processados grandes (manter só os leves que o web/ consome)
+data/processed/*.parquet
+data/processed/*secao*
+!data/processed/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.pytest_cache/
+.ruff_cache/
+.venv/
+
+# SO / editores
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+
+# Claude Code (config local pessoal não vai pro repo)
+.claude/settings.local.json

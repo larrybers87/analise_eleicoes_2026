@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(pytest:*)",
+      "Bash(ruff:*)",
+      "Bash(conda list:*)",
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "WebFetch(domain:www.tse.jus.br)",
+      "WebFetch(domain:dadosabertos.tse.jus.br)",
+      "WebFetch(domain:cdn.tse.jus.br)"
+    ],
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(rm -rf data/raw:*)",
+      "Read(./.env)"
+    ]
+  }
+}

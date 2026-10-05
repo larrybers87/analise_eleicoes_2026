@@ -1,0 +1,26 @@
+name: eleicao2026
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pandas>=2.2
+  - pyarrow
+  - duckdb
+  - httpx
+  - tenacity
+  - geopandas
+  - shapely
+  - pyproj
+  - topojson
+  - matplotlib
+  - plotly
+  - jupyterlab
+  - ipykernel
+  - tqdm
+  - ruff
+  - pytest
+  - pip
+  - pip:
+      - geobr
+      - coloraide   # conversões OKLab para mistura de cores
+      - -e .
