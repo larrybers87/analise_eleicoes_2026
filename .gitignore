@@ -7,6 +7,13 @@ data/interim/*
 data/processed/*.parquet
 data/processed/*secao*
 !data/processed/.gitkeep
+# Parquet pequenos (nível município/UF/BR, ~1.3MB total em 05/10/2026) — ok versionar
+!data/processed/presidente_t1_br.parquet
+!data/processed/presidente_t1_br_totais.parquet
+!data/processed/presidente_t1_uf.parquet
+!data/processed/presidente_t1_uf_totais.parquet
+!data/processed/presidente_t1_municipio.parquet
+!data/processed/presidente_t1_municipio_totais.parquet
 
 # Python
 __pycache__/

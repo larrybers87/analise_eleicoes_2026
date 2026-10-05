@@ -4,7 +4,7 @@ Fases macro. O detalhe do dia a dia fica no `STATUS.md`.
 
 **F0 — Setup.** Ambiente, GitHub, Claude Code, documentação. ✅ (falta só executar o setup local)
 
-**F1 — Base Presidente 1º turno por município.** Coletor da API JSON, parser EA20, Parquet normalizado, testes de invariantes. Inclui exterior.
+**F1 — Base Presidente 1º turno por município.** ✅ Coletor da API JSON, parser EA20, Parquet normalizado, testes de invariantes, join com IBGE. Inclui exterior. 3 divergências reais documentadas em `docs/DADOS.md` (não bloqueiam F2).
 
 **F2 — Mapa v1.** `web/` com MapLibre: Brasil → UF → município; cor por candidato (mistura OKLab e modo vencedor+margem alternáveis); painel lateral com resultados da região clicada. Exterior como camada de pontos.
 

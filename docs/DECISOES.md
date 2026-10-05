@@ -21,3 +21,15 @@ Ressalva: com 3+ candidatos fortes a mistura tende a cinza e perde legibilidade.
 ## D-005 · 2026-10-05 · Documentar schema do EA12/EA20 por inspeção direta do JSON, sem os PDFs oficiais
 Motivo: `www.tse.jus.br` e `divulgacandcontas.tse.jus.br` (onde ficam os PDFs EA12/EA20) retornam 403 para o IP do ambiente de execução — bloqueio de rede, não relacionado ao rate limit de resultados (`resultados.tse.jus.br` funciona normalmente). Baixamos as 3 fontes de teste e documentamos os campos reais em `docs/DADOS.md` a partir do JSON.
 Alternativas: esperar acesso aos PDFs fora deste ambiente antes de prosseguir (descartada — atrasaria a coleta sem necessidade; a inspeção direta já deu campos suficientes e consistentes para o parser).
+
+## D-006 · 2026-10-05 · Coleta completa com worker pool (fila + N tasks) em vez de `asyncio.gather` simples
+Motivo: com ~5786 itens, `gather` com `return_exceptions=True` deixaria tasks já em voo continuarem batendo no TSE mesmo depois de um 403/429/abort-por-404 (justamente o cenário que a skill `tse-dados` proíbe). Fila + 10 workers (igual ao `MAX_CONCORRENCIA` do `TseClient`) + `asyncio.Event` de abort garante que, ao detectar bloqueio, nenhum worker pega item novo da fila.
+Alternativas: `gather` simples (mais simples de escrever, mas não corta requisições em voo ao abortar); sequencial sem concorrência (correto mas ~3-5x mais lento que o rate limit permite).
+
+## D-007 · 2026-10-05 · Versionar os 6 Parquet de `presidente_t1_*` (nível BR/UF/município)
+Motivo: total ~1,3MB (bem abaixo de qualquer limite prático do GitHub); CLAUDE.md já previa versionar "só os pequenos" em `data/processed/`. Ajustamos `.gitignore` para liberar só esses 6 arquivos nominalmente (continua bloqueando `*.parquet` de seção/zona, que serão grandes).
+Alternativas: deixar fora do git e depender só de regeneração via `coletar_presidente.py`+`processar_presidente.py` (descartada por ora — o usuário/CI ainda não tem forma de regenerar sem rodar a coleta completa de novo, ~10min; reconsiderar quando o pipeline estiver mais maduro ou se o repo crescer demais).
+
+## D-008 · 2026-10-05 · Correção: campos `p<campo>n` do EA20 usam vírgula decimal, não ponto
+Motivo: a etapa 1 documentou (incorretamente) que `p<campo>n` usava ponto decimal, com base numa amostra que coincidentemente não tinha parte fracionária (`"100"`/`"0"`). A coleta completa expôs o erro ao parsear `pvapn` (ex. `"57,499675335"`) como float. Corrigido em `parse_ea20._float` (`.replace(",", ".")`) e em `docs/DADOS.md`.
+Alternativas: nenhuma — é uma correção factual, não uma escolha de design.
