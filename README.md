@@ -1,6 +1,10 @@
 # Análise Eleição 2026
 
+[![Deploy do mapa (GitHub Pages)](https://github.com/larrybers87/analise_eleicoes_2026/actions/workflows/pages.yml/badge.svg)](https://github.com/larrybers87/analise_eleicoes_2026/actions/workflows/pages.yml)
+
 Mapa interativo e análise dos resultados da eleição presidencial de 2026 (Brasil + exterior; UF, município, zona), a partir dos dados oficiais do TSE.
+
+**Mapa publicado:** https://larrybers87.github.io/analise_eleicoes_2026/
 
 - Fontes de dados: [`docs/DADOS.md`](docs/DADOS.md)
 - Onde estamos: [`docs/STATUS.md`](docs/STATUS.md)
@@ -87,6 +91,22 @@ cd web && python -m http.server 8765
 Não abra `web/index.html` direto pelo `file://` — o `fetch` dos dados é bloqueado
 por CORS. Em produção, qualquer HTTP estático serve (GitHub Pages inclusive).
 
+Todos os caminhos em `web/` (fetch de `data/...`, `css/estilo.css`, `js/app.js`)
+são **relativos**, sem barra inicial — o site roda num subcaminho
+(`/analise_eleicoes_2026/`), não na raiz do domínio. Testado servindo
+`web/` de dentro de um diretório pai (`python -m http.server` na raiz do
+projeto, abrindo `/web/`) para simular o subcaminho antes de publicar.
+
+### Deploy (GitHub Pages via Actions)
+
+`.github/workflows/pages.yml` publica `web/` a cada push na `main` que toque
+`web/**` (ou manualmente via `workflow_dispatch`). **Ativação única** (depois
+do primeiro push com o workflow): Settings → Pages → Source → **GitHub
+Actions** (não "Deploy from a branch" — não existe mais pasta `/web` sendo
+servida diretamente, o workflow empacota e publica o conteúdo de `web/`).
+
+URL publicada: https://larrybers87.github.io/analise_eleicoes_2026/
+
 ## GitHub
 
 Com o [GitHub CLI](https://cli.github.com/) instalado e logado (`gh auth login`):
@@ -98,7 +118,8 @@ git commit -m "setup inicial do projeto"
 gh repo create analise_eleicao_2026 --public --source=. --remote=origin --push
 ```
 
-(Use `--private` se preferir. Para publicar o mapa depois: Settings → Pages → branch `main`, pasta `/web`.)
+(Use `--private` se preferir — GitHub Pages funciona em repositório privado
+também, desde que o plano permita.)
 
 ## Licença dos dados
 

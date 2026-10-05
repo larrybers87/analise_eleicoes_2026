@@ -18,4 +18,4 @@ Fases macro. O detalhe do dia a dia fica no `STATUS.md`.
 
 **F6 — Outros cargos.** Governador, Senador, Deputados (eleição 6259/6260). Só se F1–F4 estiverem sólidas.
 
-**Publicação.** GitHub Pages servindo `web/` + `data/processed/` leve.
+**Publicação.** ✅ GitHub Pages via Actions (`.github/workflows/pages.yml`), publicando `web/` (dados em `web/data/`, gerados de `data/processed/`). https://larrybers87.github.io/analise_eleicoes_2026/

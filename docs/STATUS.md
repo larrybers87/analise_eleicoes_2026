@@ -1,6 +1,6 @@
 # STATUS
 
-Última atualização: 2026-10-05 — F2 entregue: mapa web v1 funcionando em `web/`.
+Última atualização: 2026-10-05 — mapa publicado no GitHub Pages via Actions.
 
 ## Feito
 - Estrutura de pastas, `CLAUDE.md`, docs (`DADOS.md`, `DECISOES.md`, `ROADMAP.md`), `.gitignore`, `environment.yml`, `pyproject.toml`.
@@ -32,10 +32,13 @@
 - (nada)
 
 ## Próximo (em ordem)
-1. Acompanhar `matematicamente_definido` (`md`) da BR — já `"s"` (2º turno) em 05/10/2026; quando `tf_judicial` virar `"s"`, `situacao`/`classificado` dos candidatos passam a ser confiáveis para saber quem avança. Rodar `scripts/verificar_atualizacoes.py` periodicamente; se houver mudança, rodar `python scripts/exportar_web.py --sem-geometria` (a geometria não precisa ser refeita).
-2. Publicar o `web/` no GitHub Pages (Settings → Pages → branch `main`, pasta `/web`) e conferir o site servido de verdade.
-3. F2.1: geocodificação do exterior (186 postos → país/coordenadas) para sair da tabela e virar pontos no mapa.
-4. F3: análises (abstenção/brancos/nulos por recorte, concentração de votos, comparativos).
+1. Acompanhar `matematicamente_definido` (`md`) da BR — já `"s"` (2º turno) em 05/10/2026; quando `tf_judicial` virar `"s"`, `situacao`/`classificado` dos candidatos passam a ser confiáveis para saber quem avança. Rodar `scripts/verificar_atualizacoes.py` periodicamente; se houver mudança, rodar `python scripts/exportar_web.py --sem-geometria` (a geometria não precisa ser refeita) e dar push (o workflow de Pages redeploya sozinho em qualquer push que toque `web/**`).
+2. F2.1: geocodificação do exterior (186 postos → país/coordenadas) para sair da tabela e virar pontos no mapa.
+3. F3: análises (abstenção/brancos/nulos por recorte, concentração de votos, comparativos).
+
+## Publicação
+- **Site**: https://larrybers87.github.io/analise_eleicoes_2026/ — deploy automático via `.github/workflows/pages.yml` (push em `main` tocando `web/**`, ou `workflow_dispatch`). GitHub Pages do repositório já estava configurado com `build_type: workflow` (`gh api repos/.../pages`) — não precisou de ativação manual adicional.
+- Caminhos em `web/` confirmados relativos (sem barra inicial) e testados servindo de um diretório pai para simular o subcaminho `/analise_eleicoes_2026/` do Pages.
 
 ## Bloqueios / dúvidas abertas
 - **Divergência residual de BA (3 municípios) sem solução do nosso lado**: confirmada de novo via `scripts/verificar_atualizacoes.py` nesta sessão — o backend do TSE segue servindo uma geração de 04/10 ~21:00 para `ba33693`/`ba34673`/`ba36013`, mesmo sob `--force`. Catalogada em `data/known_issues.csv`; todas as diferenças são < 0,02% dos totais da UF. Rodar `scripts/verificar_atualizacoes.py` periodicamente.
