@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<title>Presidente 2026 — 1º turno | mapa de resultados</title>
+<meta name="description" content="Mapa interativo do resultado do 1º turno da eleição presidencial de 2026, por UF e por município, a partir dos dados oficiais do TSE.">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.css">
+<link rel="stylesheet" href="css/estilo.css">
+</head>
+<body>
+
+<header id="topo">
+  <div id="titulo">
+    <strong>Presidente 2026</strong><span class="sep">·</span><span id="subtitulo">1º turno</span>
+  </div>
+
+  <nav id="trilha" aria-label="Navegação">
+    <!-- breadcrumb preenchido por js/app.js -->
+  </nav>
+
+  <div id="busca-caixa">
+    <input id="busca" type="search" autocomplete="off" spellcheck="false"
+           placeholder="Buscar município…" aria-label="Buscar município por nome">
+    <ul id="busca-resultados" hidden role="listbox"></ul>
+  </div>
+</header>
+
+<main>
+  <div id="mapa" role="application" aria-label="Mapa de resultados"></div>
+
+  <div id="controles">
+    <div class="grupo" role="group" aria-label="Camada">
+      <button type="button" data-camada="uf" class="ativo" title="Brasil por UF">
+        <span class="longo">Brasil por UF</span><span class="curto">UF</span>
+      </button>
+      <button type="button" data-camada="mun" title="Brasil por município">
+        <span class="longo">Brasil por município</span><span class="curto">Município</span>
+      </button>
+    </div>
+    <div class="grupo" role="group" aria-label="Modo de cor">
+      <button type="button" data-modo="mistura" class="ativo" title="Mistura ponderada pelos votos">
+        Mistura
+      </button>
+      <button type="button" data-modo="margem" title="Cor do vencedor, intensidade pela margem">
+        <span class="longo">Vencedor + margem</span><span class="curto">Margem</span>
+      </button>
+    </div>
+    <button type="button" id="btn-voltar" hidden>← Voltar</button>
+  </div>
+
+  <div id="legenda" aria-live="polite"></div>
+
+  <div id="tooltip" hidden></div>
+
+  <aside id="painel" aria-label="Resultados da região selecionada">
+    <button type="button" id="painel-alternar" aria-expanded="true">Resultados</button>
+    <div id="painel-conteudo"></div>
+  </aside>
+</main>
+
+<footer id="pe">
+  <span id="pe-fonte">Carregando…</span>
+  <span id="pe-extra"></span>
+</footer>
+
+<div id="modal-exterior" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modal-titulo">
+  <div class="modal-caixa">
+    <header>
+      <h2 id="modal-titulo">Exterior</h2>
+      <button type="button" id="modal-fechar" aria-label="Fechar">×</button>
+    </header>
+    <p class="nota" id="modal-nota"></p>
+    <div class="tabela-rolagem">
+      <table id="tabela-exterior">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="carregando" hidden><span></span></div>
+
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

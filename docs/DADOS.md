@@ -254,6 +254,9 @@ explica o comportamento exatamente. Reescrevemos os testes correspondentes
 ## 3. Geometria
 
 - Municípios/UFs: IBGE via pacote `geobr` (`read_municipality(year=2024)`, `read_state`). Simplificar (mapshaper/`topojson`) para o web.
+- **Armadilha do `geobr`: `simplified=True` (o padrão) simplifica FEATURE A FEATURE.** Serve para um plot rápido no matplotlib, mas **não serve como entrada de uma topologia**: os vértices das fronteiras entre municípios vizinhos deixam de coincidir exatamente, e o `topojson.Topology` não consegue reconhecer os arcos compartilhados. Medido em 05/10/2026 (ver `docs/DECISOES.md` D-016): MG sai com **20.460 arcos** a partir da malha simplificada contra **2.533** a partir da completa; Brasil inteiro, **113.358** contra **18.140**. Como cada arco custa no mínimo 2 pontos no arquivo final, isso cria um piso de tamanho que nenhuma tolerância de simplificação consegue furar. Para qualquer uso topológico (TopoJSON, dissolve, vizinhança), use `read_municipality(year=2024, simplified=False)` — 5.571 municípios, 17.889.916 vértices, ~10s de leitura do cache do `geobr` — e simplifique depois, com `topojson`.
+- A malha completa de 2024 vem com **1 geometria inválida** (corrigida com `make_valid()` em `scripts/exportar_web.py`); a simplificada vem com 0, mas pelo motivo errado.
+- `dissolve` por UF da malha municipal completa leva ~70s e gera fronteiras de UF que coincidem exatamente com as dos municípios — preferível a `read_state` quando as duas camadas são desenhadas juntas.
 - Zonas eleitorais: **não há polígono oficial**. Opções: (a) pontos dos locais de votação (Eleitorado por local de votação); (b) polígonos derivados (Voronoi/hull dos locais por zona) — aproximação, marcar como tal no mapa.
 - Exterior: pontos por cidade ou agregação por país (geometria Natural Earth).
 

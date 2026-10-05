@@ -60,6 +60,33 @@ Rode esta rotina periodicamente (ex. a cada atualização de apuração) em vez 
 repetir a coleta completa — mais rápido e evita bater no rate limit do TSE à
 toa. Detalhes do porquê de cada divergência em [`docs/DADOS.md`](docs/DADOS.md).
 
+## Mapa web (`web/`)
+
+Site 100% estático (MapLibre GL JS + topojson-client via CDN, sem backend e sem
+build step). Os dados que ele consome ficam em `web/data/`, gerados a partir de
+`data/processed/`:
+
+```bash
+python scripts/exportar_web.py                  # tudo (~10 min: a geometria é o custo)
+python scripts/exportar_web.py --sem-geometria   # só os JSON de resultado (~1 min)
+python scripts/exportar_web.py --apenas-nacional # só brasil_municipios.topojson (~4 min)
+
+python scripts/verificar_export_web.py           # confere web/data/ contra os Parquet
+```
+
+Depois de uma atualização de resultados (`verificar_atualizacoes.py`), basta
+rodar `--sem-geometria`: a geometria só muda se a malha do IBGE mudar.
+
+Para ver localmente:
+
+```bash
+cd web && python -m http.server 8765
+# abra http://127.0.0.1:8765/
+```
+
+Não abra `web/index.html` direto pelo `file://` — o `fetch` dos dados é bloqueado
+por CORS. Em produção, qualquer HTTP estático serve (GitHub Pages inclusive).
+
 ## GitHub
 
 Com o [GitHub CLI](https://cli.github.com/) instalado e logado (`gh auth login`):

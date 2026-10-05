@@ -6,7 +6,9 @@ Fases macro. O detalhe do dia a dia fica no `STATUS.md`.
 
 **F1 — Base Presidente 1º turno por município.** ✅ Coletor da API JSON, parser EA20, Parquet normalizado, testes de invariantes, join com IBGE. Inclui exterior. 3 divergências reais documentadas em `docs/DADOS.md` (não bloqueiam F2).
 
-**F2 — Mapa v1.** `web/` com MapLibre: Brasil → UF → município; cor por candidato (mistura OKLab e modo vencedor+margem alternáveis); painel lateral com resultados da região clicada. Exterior como camada de pontos.
+**F2 — Mapa v1.** ✅ `web/` com MapLibre: Brasil por UF ↔ Brasil por município (toggle) → drill-down por UF → município; cor por candidato (mistura OKLab e modo vencedor+margem alternáveis); painel lateral com resultados da região clicada; busca por nome; responsivo (bottom-sheet no celular). Exterior: card de totais na visão Brasil + tabela ordenável dos 186 locais (sem mapa na v1 — ver F2.1). Dados gerados por `scripts/exportar_web.py`, conferidos por `scripts/verificar_export_web.py`. Divergências do plano em `docs/DECISOES.md` D-016.
+
+**F2.1 — Geocodificação do exterior.** As 186 "cidades" do exterior no config do TSE só têm nome, sem coordenadas/país. Construir uma tabela offline (cidade → país/coordenadas aproximadas) para plotar como pontos no mapa-múndi (talvez agregados por país). Lista estática de postos consulares, não muda com frequência — não bloqueia F2.
 
 **F3 — Análises.** Notebooks + página de análises: votos por região (N/NE/CO/SE/S/exterior), abstenção/brancos/nulos por recorte, distribuição de margens, concentração (ex.: quantos municípios fazem X% dos votos de cada candidato), correlação com eleitorado (perfil por seção do Dados Abertos).
 

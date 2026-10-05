@@ -1,6 +1,6 @@
 # STATUS
 
-Última atualização: 2026-10-05 — paleta de cores APROVADA; agente `mapa-web` criado; planejando F2 (mapa web).
+Última atualização: 2026-10-05 — F2 entregue: mapa web v1 funcionando em `web/`.
 
 ## Feito
 - Estrutura de pastas, `CLAUDE.md`, docs (`DADOS.md`, `DECISOES.md`, `ROADMAP.md`), `.gitignore`, `environment.yml`, `pyproject.toml`.
@@ -20,14 +20,22 @@
 - **Paleta de cores — v1 proposta** (D-013): `config/candidatos.yaml`, `src/eleicao/cores.py` (`mistura_oklab`, `vencedor_margem` v1, `simular_daltonismo`, `distancia_oklab`), preview em `notebooks/01_paleta.ipynb`/`docs/img/paleta_preview.png` (mapa por UF).
 - **Paleta de cores — v2, revisão pedida pelo usuário** (D-014): faixa de matiz `FAIXA_RESERVADA_PT_PL` (260°–30° em OKLCH, medida varrendo o gradiente PT↔PL) reservada só para a mistura PT×PL — nenhum outro candidato pode cair nela; Renan Santos (4º) movido para ciano (H=200°), Ronaldo Caiado (5º) promovido a croma médio em âmbar (H=75°, antes croma baixo), os 7 candidatos <1% dos válidos viraram CINZA (C=0, `L` espaçado 0,35–0,77) em vez de hues de croma baixo (colidiam sob deuteranopia, ΔE~0,5–2,6). `vencedor_margem` reescrito: `MARGEM_SATURACAO=0.40` (40pp já satura), interpolação linear em OKLab entre `NEUTRO_EMPATE_HEX` (acromático, L=0,92 — empate exato não carrega hue de nenhum candidato) e a cor plena do vencedor. Nova `agrupar_outros`/`COR_OUTROS` para legendas (não usada no mapa). `tests/test_cores.py`: 39 testes (whole suite).
 - **Paleta de cores — APROVADA** (complemento D-013): Ronaldo Caiado vence **0 municípios** em todo o Brasil (`presidente_t1_municipio.parquet`) — ΔE(Caiado×PT)=0,063 sob deuteranopia nunca aparece no mapa de vitória (só em swatch de legenda). Risco aceito pelo usuário; `config/candidatos.yaml`/`src/eleicao/cores.py` congelados como v1 do mapa (ver F2).
+- **F2 — mapa web v1 ENTREGUE** (D-015 planejado, D-016 com as divergências de implementação):
+  - `scripts/exportar_web.py` gera `web/data/` (7,6MB bruto / 1,9MB gzip no total): `meta.json` (snapshot + paleta + rampa de margem já em hex), `resultados/br.json`, `resultados/uf/uf_<sigla>.json` (27), `resultados/municipios_br.json` (índice nacional compacto, serve a camada nacional e a busca), `exterior.json` (186 locais), e a geometria em TopoJSON (`geo/brasil_uf.topojson` 210KB/67KB gzip, `geo/municipios/uf_<sigla>.topojson` ×27, pior caso MG 354KB/114KB, `geo/brasil_municipios.topojson` 1,5MB/371KB). **Carga inicial: 70KB gzip.** Build completo ~10min (nacional sozinho: 227s).
+  - **Achado crítico** (D-016 item 1): a topologia tem que ser montada sobre a malha **completa** do `geobr` (`simplified=False`). A `simplified=True` destrói o compartilhamento de vértices entre vizinhos, explode o nº de arcos (MG: 20.460 → 2.533) e cria um piso de tamanho que a simplificação não fura (nacional travava em 3,8MB/1,1MB gzip).
+  - Validação do build (aborta): contagem de features vs config do TSE, id ausente/duplicado, geometria vazia/nula/área zero, perda de área por feature (>40%, 60% no nacional), área total (±2%), área comprometida por auto-interseção (>0,05%). Já pegou um caso real (Santa Cruz de Minas/MG perdendo 54,5% da área) — ver D-016 item 3.
+  - `web/` (MapLibre GL JS 5.24.0 + topojson-client 3.1.0 via CDN, vanilla, sem build step, sem basemap de terceiros): Brasil por UF ↔ Brasil por município, drill-down por UF → município, 2 modos de cor com legenda própria, painel lateral completo (barras com "Outros" já agrupado em Python, comparecimento/abstenção/brancos/`nulos_vn`+`nulos_tvn`/anulados só se >0, status de totalização em texto), hover por `feature-state`, busca por nome, card + tabela ordenável do exterior, responsivo a 375px. Cache busting por `?v=<idg>`.
+  - `scripts/verificar_export_web.py`: confere `web/data/` contra os Parquet (totais, votos pós-`agrupar_outros`, as 2 cores recalculadas por `cores.py`, margem, contagens). **152 verificações, 0 falhas** em BR + BA/SP + Belo Campo/BA (caso-limite de `known_issues.csv`), Bom Jesus do Galho/MG e São Paulo/SP.
+  - Previews: `docs/img/mapa_preview_*.png` (7 estados, capturados com Playwright headless contra `python -m http.server`).
 
 ## Em andamento
 - (nada)
 
 ## Próximo (em ordem)
-1. Usuário aprova (ou pede novo ajuste) da paleta de cores v2 — ver `docs/img/paleta_preview.png` e as 3 decisões de design marcadas em `config/candidatos.yaml` (cinza nos candidatos <1%; Caiado âmbar com ΔE baixo contra PT sob deuteranopia).
-2. F2: mapa v1 em `web/` (MapLibre), Brasil → UF → município, usando `presidente_t1_municipio*.parquet` + `src/eleicao/cores.py`.
-3. Acompanhar `matematicamente_definido` (`md`) da BR — já `"s"` (2º turno) em 05/10/2026; quando `tf_judicial` virar `"s"`, `situacao`/`classificado` dos candidatos passam a ser confiáveis para saber quem avança. Rodar `scripts/verificar_atualizacoes.py` periodicamente até lá.
+1. Acompanhar `matematicamente_definido` (`md`) da BR — já `"s"` (2º turno) em 05/10/2026; quando `tf_judicial` virar `"s"`, `situacao`/`classificado` dos candidatos passam a ser confiáveis para saber quem avança. Rodar `scripts/verificar_atualizacoes.py` periodicamente; se houver mudança, rodar `python scripts/exportar_web.py --sem-geometria` (a geometria não precisa ser refeita).
+2. Publicar o `web/` no GitHub Pages (Settings → Pages → branch `main`, pasta `/web`) e conferir o site servido de verdade.
+3. F2.1: geocodificação do exterior (186 postos → país/coordenadas) para sair da tabela e virar pontos no mapa.
+4. F3: análises (abstenção/brancos/nulos por recorte, concentração de votos, comparativos).
 
 ## Bloqueios / dúvidas abertas
 - **Divergência residual de BA (3 municípios) sem solução do nosso lado**: confirmada de novo via `scripts/verificar_atualizacoes.py` nesta sessão — o backend do TSE segue servindo uma geração de 04/10 ~21:00 para `ba33693`/`ba34673`/`ba36013`, mesmo sob `--force`. Catalogada em `data/known_issues.csv`; todas as diferenças são < 0,02% dos totais da UF. Rodar `scripts/verificar_atualizacoes.py` periodicamente.
