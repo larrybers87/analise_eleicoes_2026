@@ -575,7 +575,13 @@ def calcular_swing(mun_tot: pd.DataFrame, ordem_ibge: list[str], paleta: dict[in
         "cores": [c for _, c in escala],
         "limite_negativo": round(lim_neg, 4),
         "limite_positivo": round(lim_pos, 4),
-        "percentis": list(swing.PERCENTIS_ESCALA_DELTA),
+        # percentil de cada lado, sobre os valores daquele lado (D-031)
+        "percentis": {
+            "negativo": swing.PERCENTIL_LADO_NEGATIVO,
+            "positivo": swing.PERCENTIL_LADO_POSITIVO,
+        },
+        "n_negativos": int((dm["delta_margem_pp"] < 0).sum()),
+        "n_positivos": int((dm["delta_margem_pp"] > 0).sum()),
         "n_pareados_br": int(len(dm)),
         "br": [_r(br["swing_pt_pp"], 3), _r(br["swing_pl_pp"], 3), _r(br["delta_margem_pp"], 3)],
         "formato": ["swing_pt_pp", "swing_pl_pp", "delta_margem_pp"],

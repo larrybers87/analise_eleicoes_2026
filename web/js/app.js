@@ -1238,13 +1238,14 @@ function legendaSwing() {
     `<span class="barra" style="background:${gradiente(neg, fr(neg.length))}"></span>` +
     `<span class="barra" style="background:${gradiente(pos, fr(pos.length))}"></span>` +
     '</div>' +
-    `<div class="escala ticks"><span>${sinalPp(e.limite_negativo, 2)} ou menos</span>` +
+    `<div class="escala ticks"><span>${sinalPp(e.limite_negativo, 1)} ou menos</span>` +
     `<span>0</span><span>${sinalPp(e.limite_positivo, 1)} ou mais</span></div>` +
     '<div class="escala"><span>a favor do PT</span><span>a favor do PL</span></div>' +
     '<div class="sw sw-fora"><i class="hachura-amostra"></i><span>sem par em 2022</span></div>' +
-    '<p class="nota"><b>Branco = sem mudança</b> na margem. Cada lado satura no próprio limite ' +
-    `(percentis ${e.percentis[0]} e ${e.percentis[1]} dos municípios), por isso as metades têm ` +
-    `escalas diferentes. <b>Atenção:</b> ${AVISO_IDENTIDADE}; o swing mede a sigla.</p>`
+    '<p class="nota"><b>Branco = sem mudança</b> na margem. Cada lado tem a própria escala: o ' +
+    `vermelho satura no percentil ${e.percentis.negativo} dos ${num(e.n_negativos)} municípios que ` +
+    `andaram para o PT, o azul no percentil ${e.percentis.positivo} dos ${num(e.n_positivos)} que ` +
+    `andaram para o PL. <b>Atenção:</b> ${AVISO_IDENTIDADE}; o swing mede a sigla.</p>`
   );
 }
 

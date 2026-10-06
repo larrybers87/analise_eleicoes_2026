@@ -282,20 +282,38 @@ def test_real_delta_margem_br(dados_swing):
     assert round(ag["delta_margem_pp"], 1) == 7.1
 
 
-def test_limites_escala_delta_p1_p99_assimetricos():
-    d = pd.Series(np.r_[np.linspace(-2, -0.1, 30), np.linspace(0.1, 30, 970)])
+def test_limites_escala_delta_um_percentil_por_lado():
+    neg_vals = np.linspace(-4, -0.1, 40)
+    pos_vals = np.linspace(0.1, 30, 960)
+    d = pd.Series(np.r_[neg_vals, [0.0, 0.0], pos_vals, [np.nan]])
     neg, pos = sw.limites_escala_delta(d)
-    assert neg == pytest.approx(np.percentile(d, 1))
-    assert pos == pytest.approx(np.percentile(d, 99))
+    assert neg == pytest.approx(-np.percentile(-neg_vals, 95))
+    assert pos == pytest.approx(np.percentile(pos_vals, 99))
     assert neg < 0 < pos and neg != -pos
 
 
-def test_limites_escala_delta_cai_para_o_extremo_quando_p1_nao_e_negativo():
-    d = pd.Series([-0.5] + [5.0] * 999)
-    neg, pos = sw.limites_escala_delta(d)
-    assert neg == -0.5 and pos == 5.0
+def test_limites_escala_delta_nao_usa_a_distribuicao_inteira():
+    # 2% negativos e 98% positivos: o p1 da distribuição inteira cairia perto de zero; o
+    # limite por lado continua refletindo a escala dos próprios negativos.
+    d = pd.Series(np.r_[np.linspace(-10, -2, 20), np.linspace(1, 30, 980)])
+    neg, _ = sw.limites_escala_delta(d)
+    assert neg < -9
+    assert np.percentile(d, 1) > neg
 
 
 def test_limites_escala_delta_exige_os_dois_lados():
     with pytest.raises(ValueError):
         sw.limites_escala_delta(pd.Series([1.0, 2.0, 3.0]))
+    with pytest.raises(ValueError):
+        sw.limites_escala_delta(pd.Series([-1.0, 0.0]))
+
+
+def test_real_limites_escala_delta(dados_swing):
+    t22, t26, c22, c26, par, _ = dados_swing
+    pt = sw.swing_municipal(par, c22, t22, c26, t26, 13, 13)
+    pl = sw.swing_municipal(par, c22, t22, c26, t26, 22, 22)
+    d = sw.delta_margem_municipal(pt[pt.uf != "zz"], pl[pl.uf != "zz"]).delta_margem_pp
+    neg, pos = sw.limites_escala_delta(d)
+    assert neg == pytest.approx(-np.percentile(-d[d < 0], 95))
+    assert pos == pytest.approx(np.percentile(d[d > 0], 99))
+    assert neg < -1  # o lado negativo deixa de colar no zero (antes: −0,05 com o p1 inteiro)

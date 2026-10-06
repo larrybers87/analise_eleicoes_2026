@@ -286,26 +286,30 @@ def delta_margem_agregado(
     return out.rename(columns={"_grupo": "grupo"}) if grupo is None else out
 
 
-PERCENTIS_ESCALA_DELTA = (1, 99)
-"""Percentis que saturam a escala divergente do modo "Swing" do mapa (D-030)."""
+PERCENTIL_LADO_NEGATIVO = 95
+PERCENTIL_LADO_POSITIVO = 99
+"""Percentis que saturam a escala divergente do modo "Swing" do mapa (D-031).
+
+Cada lado usa a distribuição dos PRÓPRIOS valores: o negativo é o p95 de |Δmargem| só entre
+os municípios com Δmargem < 0; o positivo é o p99 só entre os com Δmargem > 0. Percentis da
+distribuição inteira (D-030 usava p1/p99) misturam os dois sinais: como quase todo município
+andou para o PL, o p1 inteiro era −0,05 p.p., e qualquer movimento para o PT saturava no
+vermelho pleno (lado negativo ilegível)."""
 
 
 def limites_escala_delta(delta_pp: pd.Series) -> tuple[float, float]:
-    """(limite negativo, limite positivo) da escala do swing: p1 e p99 do Δmargem municipal.
+    """(limite negativo, limite positivo) da escala do swing, um percentil POR LADO.
 
-    Assimétrica de propósito (não espelha): cada lado satura no próprio percentil. Se um dos
-    lados não existir no percentil (ex.: p1 ≥ 0, quase nenhum município andou para o PT), usa
-    o extremo observado daquele lado; se nem isso existir, levanta erro (a escala divergente
-    não faz sentido sem os dois lados).
+    - negativo = −p95(|Δ|) entre os municípios com Δ < 0;
+    - positivo = p99(Δ) entre os municípios com Δ > 0.
+    Zeros não entram em nenhum lado. Não espelha (os dois lados têm escalas diferentes).
+    Sem valores de um dos lados, levanta erro: a escala divergente não faz sentido assim.
     """
     d = delta_pp.dropna().to_numpy(dtype=float)
-    if d.size == 0:
-        raise ValueError("Δmargem vazio")
-    neg, pos = (float(np.percentile(d, p)) for p in PERCENTIS_ESCALA_DELTA)
-    if neg >= 0:
-        neg = float(d.min())
-    if pos <= 0:
-        pos = float(d.max())
-    if not neg < 0 < pos:
+    negativos = -d[d < 0]
+    positivos = d[d > 0]
+    if negativos.size == 0 or positivos.size == 0:
         raise ValueError("Δmargem sem valores dos dois lados de zero")
+    neg = -float(np.percentile(negativos, PERCENTIL_LADO_NEGATIVO))
+    pos = float(np.percentile(positivos, PERCENTIL_LADO_POSITIVO))
     return neg, pos
