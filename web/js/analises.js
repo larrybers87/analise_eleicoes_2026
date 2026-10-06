@@ -250,6 +250,15 @@
     if (D) return;
     D = await obter(A.secoes.s4.arquivo);
     graficoS4();
+    limparAria($('#g-s4'));
+  }
+
+  /** O Plot põe aria-label em <g> sem papel ARIA (o Lighthouse acusa
+   *  "aria-prohibited-attr"). A descrição acessível fica no <figure aria-label> de cada
+   *  gráfico; os <g> são decorativos para leitor de tela. */
+  function limparAria(raiz) {
+    raiz.querySelectorAll('svg g[aria-label]').forEach((g) => g.removeAttribute('aria-label'));
+    raiz.querySelectorAll('svg').forEach((s) => s.setAttribute('aria-hidden', 'true'));
   }
 
   function desenharTudo() {
@@ -258,6 +267,7 @@
     graficoS3();
     graficoS5();
     graficoS4();
+    document.querySelectorAll('figure.grafico').forEach(limparAria);
   }
 
   // ------------------------------------------------------------ início
@@ -291,6 +301,7 @@
         b.classList.add('ativo');
         candDispersao = b.dataset.cand;
         graficoS4();
+        limparAria($('#g-s4'));
       })
     );
 

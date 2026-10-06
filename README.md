@@ -1,140 +1,79 @@
-# Análise Eleição 2026
+# Presidente 2026: mapa e análises do 1º turno
 
 [![Deploy do mapa (GitHub Pages)](https://github.com/larrybers87/analise_eleicoes_2026/actions/workflows/pages.yml/badge.svg)](https://github.com/larrybers87/analise_eleicoes_2026/actions/workflows/pages.yml)
 
-Mapa interativo e análise dos resultados da eleição presidencial de 2026 (Brasil + exterior; UF, município, zona), a partir dos dados oficiais do TSE.
+### **[larrybers87.github.io/analise_eleicoes_2026](https://larrybers87.github.io/analise_eleicoes_2026/)** · [página de análises](https://larrybers87.github.io/analise_eleicoes_2026/analises.html)
 
-**Mapa publicado:** https://larrybers87.github.io/analise_eleicoes_2026/
+Mapa interativo e análises do resultado da eleição presidencial de 2026 no Brasil, por estado
+e pelos 5.571 municípios (com o exterior à parte), feitos a partir dos dados oficiais do TSE.
+Cada candidato tem uma cor fixa e a cor de cada região é a mistura ponderada pelos votos; dá
+para destacar um candidato, comparar com 2022 e ler seis achados com gráficos e ressalvas.
+Projeto pessoal e não oficial: os dados do TSE são provisórios até a totalização final.
 
-- Fontes de dados: [`docs/DADOS.md`](docs/DADOS.md)
-- Onde estamos: [`docs/STATUS.md`](docs/STATUS.md)
-- Fases: [`docs/ROADMAP.md`](docs/ROADMAP.md)
-- Decisões: [`docs/DECISOES.md`](docs/DECISOES.md)
+| Brasil por município (mistura dos votos) | Swing 2022 → 2026 |
+|---|---|
+| ![Mapa do Brasil por município colorido pela mistura dos votos de Flávio Bolsonaro e Lula](docs/img/mapa_preview_2_brasil_municipio.png) | ![Mapa do swing da margem PL − PT entre 2022 e 2026, quase todo em azul](docs/img/mapa_preview_f3b_swing_municipios.png) |
 
-## Setup (Windows + Anaconda)
+![Página de análises: seções com texto curto e gráfico, começando por "Em área, o mapa quase empata. Em eleitores, não"](docs/img/analises_preview_desktop_topo.png)
 
-No Anaconda Prompt, dentro da pasta do projeto:
+## Funcionalidades
+
+- **Mapa por estado e por município**, com drill-down Brasil → estado → município e busca por nome.
+- **Dois modos de cor**: mistura ponderada pelos votos (em OKLab) e vencedor com intensidade pela margem.
+- **Seleção de candidato**: "onde venceu" (só onde ele foi 1º) e "força" (% dos válidos dele em todo o mapa).
+- **Swing 2022 → 2026**: quanto a margem do PL sobre o PT mudou em cada município e estado.
+- **Painel de resultados** da região clicada: votos por candidato, comparecimento, abstenção, brancos e nulos; exterior em tabela.
+- **[Página de análises](https://larrybers87.github.io/analise_eleicoes_2026/analises.html)**: seis achados (o mapa engana, onde mudou, tamanho da cidade, renda e voto, redutos, participação), cada um com link para a visão no mapa.
+- Toda visão tem endereço próprio (`?camada=mun&modo=swing`, `?uf=go&candidato=55&modo=forca`…), pronto para compartilhar.
+
+## Stack
+
+Python 3.12 (`httpx`, `pandas`, `duckdb`, `geopandas`/`geobr`, `statsmodels`, `esda`) gera
+Parquet e os JSON do site; o site é estático (MapLibre GL JS, topojson-client e Observable
+Plot via CDN, JavaScript sem build step), publicado no GitHub Pages. Todas as cores são
+calculadas em Python. Decisões e motivos em [`docs/DECISOES.md`](docs/DECISOES.md).
+
+## Fontes de dados e licenças
+
+- **Resultados eleitorais 2026 e 2022**: [Tribunal Superior Eleitoral](https://resultados.tse.jus.br)
+  (API de divulgação e [Portal de Dados Abertos](https://dadosabertos.tse.jus.br)), sob licença
+  Creative Commons Atribuição (CC BY). Fonte: Tribunal Superior Eleitoral (TSE).
+- **Malha municipal, população (Censo 2022) e PIB municipal (2023)**: [Instituto Brasileiro de Geografia e
+  Estatística](https://www.ibge.gov.br), via [`geobr`](https://github.com/ipeaGIT/geobr) (Ipea) e
+  SIDRA/FTP do IBGE, sob licença Creative Commons Atribuição (CC BY). Fonte: IBGE.
+- Detalhes, URLs e armadilhas dos dados: [`docs/DADOS.md`](docs/DADOS.md).
+
+**Código**: licença [MIT](LICENSE) © 2026 Larry Bertoncello.
+
+## Rodar localmente
+
+Requer Anaconda/Miniconda (testado em Windows).
 
 ```bash
 conda env create -f environment.yml
 conda activate eleicao2026
-python -c "import eleicao, geobr, duckdb; print('ok')"
+nbstripout --install --attributes .gitattributes   # uma vez por clone
+
+cd web && python -m http.server 8765               # abra http://127.0.0.1:8765/
 ```
 
-No VS Code: `Ctrl+Shift+P` → *Python: Select Interpreter* → `eleicao2026`.
-
-Depois (uma vez por clone — não é global, fica no `.git/config` local): instale o filtro
-que limpa outputs de notebook antes de cada commit, para não versionar imagens
-embutidas em `.ipynb` (`.gitattributes` já diz quais arquivos passam pelo filtro,
-mas o hook em si precisa ser registrado a cada clone novo):
+`web/data/` já vem versionado. Para regerar a partir do TSE:
 
 ```bash
-nbstripout --install --attributes .gitattributes
+python scripts/coletar_presidente.py --eleicao 6257     # coleta (cache em data/raw/, ~10 min)
+python scripts/processar_presidente.py --eleicao 6257   # Parquet em data/processed/
+python scripts/exportar_web.py --sem-geometria          # JSON do mapa (sem refazer a malha)
+python scripts/exportar_analises.py                     # JSON da página de análises
+python scripts/verificar_export_web.py                  # confere web/data/ contra os Parquet
+pytest -q                                               # testes (invariantes, cores, análises, site)
 ```
 
-## Coleta e processamento (Presidente 1º turno)
+Atualizações do TSE depois da coleta: `python scripts/verificar_atualizacoes.py --eleicao 6257`
+rebaixa só o arquivo do Brasil e os itens de `data/known_issues.csv` e reprocessa se algo
+mudou. O site é publicado por `.github/workflows/pages.yml` a cada push na `main` que toque
+`web/**`. Estado do projeto: [`docs/STATUS.md`](docs/STATUS.md); fases:
+[`docs/ROADMAP.md`](docs/ROADMAP.md); achados completos: [`docs/ANALISES.md`](docs/ANALISES.md).
 
-```bash
-python scripts/coletar_presidente.py --eleicao 6257      # coleta completa (BR + 27 UF + zz + 5757 municípios)
-python scripts/processar_presidente.py --eleicao 6257    # gera os Parquet em data/processed/
-pytest -q                                                 # testes de invariantes (soma município=UF=BR)
-```
+---
 
-Rebaixar só alguns arquivos específicos (ex. depois de um diagnóstico apontar divergência),
-sem "varrer tudo de novo":
-
-```bash
-python scripts/coletar_presidente.py --force --apenas uf:ba,mun:ba:33693
-```
-
-### Rotina de manutenção: `verificar_atualizacoes.py`
-
-O TSE pode atualizar resultados depois da coleta inicial (seções ainda pendentes,
-recursos, decisões judiciais). `data/known_issues.csv` cataloga divergências
-conhecidas entre a soma dos municípios e o arquivo oficial de UF que não
-fecharam na última verificação; `data/processed/snapshot_6257.json` registra a
-geração (`idg`/`dg`/`hg`) do arquivo BR e dos itens catalogados.
-
-```bash
-python scripts/verificar_atualizacoes.py --eleicao 6257
-```
-
-O script rebaixa com `--force` **só** o arquivo BR e os municípios/UFs listados
-em `data/known_issues.csv` (extraídos dinamicamente do CSV, nunca hardcoded),
-compara a geração contra o snapshot e:
-- se nada mudou de geração: só informa e termina (nenhuma requisição extra ao
-  TSE além das poucas do `--force` dirigido);
-- se algo mudou: reprocessa os Parquet, roda `pytest -q`, atualiza o snapshot
-  e remove de `data/known_issues.csv` as divergências que convergiram (e só
-  essas — qualquer divergência nova faria o teste de invariantes falhar, não
-  é silenciada).
-
-Rode esta rotina periodicamente (ex. a cada atualização de apuração) em vez de
-repetir a coleta completa — mais rápido e evita bater no rate limit do TSE à
-toa. Detalhes do porquê de cada divergência em [`docs/DADOS.md`](docs/DADOS.md).
-
-## Mapa web (`web/`)
-
-Site 100% estático (MapLibre GL JS + topojson-client via CDN, sem backend e sem
-build step). Os dados que ele consome ficam em `web/data/`, gerados a partir de
-`data/processed/`:
-
-```bash
-python scripts/exportar_web.py                  # tudo (~10 min: a geometria é o custo)
-python scripts/exportar_web.py --sem-geometria   # só os JSON de resultado (~1 min)
-python scripts/exportar_web.py --apenas-nacional # só brasil_municipios.topojson (~4 min)
-
-python scripts/verificar_export_web.py           # confere web/data/ contra os Parquet
-```
-
-Depois de uma atualização de resultados (`verificar_atualizacoes.py`), basta
-rodar `--sem-geometria`: a geometria só muda se a malha do IBGE mudar.
-
-Para ver localmente:
-
-```bash
-cd web && python -m http.server 8765
-# abra http://127.0.0.1:8765/
-```
-
-O estado da visão fica na URL (`?camada=mun&uf=mg&mun=3106200&modo=forca&candidato=13`),
-então qualquer visão é linkável: nível (Brasil por UF / por município / UF),
-município selecionado, modo de cor (`mistura`, `margem`, `venceu`, `forca`) e
-candidato destacado.
-
-Não abra `web/index.html` direto pelo `file://` — o `fetch` dos dados é bloqueado
-por CORS. Em produção, qualquer HTTP estático serve (GitHub Pages inclusive).
-
-Todos os caminhos em `web/` (fetch de `data/...`, `css/estilo.css`, `js/app.js`)
-são **relativos**, sem barra inicial — o site roda num subcaminho
-(`/analise_eleicoes_2026/`), não na raiz do domínio. Testado servindo
-`web/` de dentro de um diretório pai (`python -m http.server` na raiz do
-projeto, abrindo `/web/`) para simular o subcaminho antes de publicar.
-
-### Deploy (GitHub Pages via Actions)
-
-`.github/workflows/pages.yml` publica `web/` a cada push na `main` que toque
-`web/**` (ou manualmente via `workflow_dispatch`). **Ativação única** (depois
-do primeiro push com o workflow): Settings → Pages → Source → **GitHub
-Actions** (não "Deploy from a branch" — não existe mais pasta `/web` sendo
-servida diretamente, o workflow empacota e publica o conteúdo de `web/`).
-
-URL publicada: https://larrybers87.github.io/analise_eleicoes_2026/
-
-## GitHub
-
-Com o [GitHub CLI](https://cli.github.com/) instalado e logado (`gh auth login`):
-
-```bash
-git init -b main
-git add .
-git commit -m "setup inicial do projeto"
-gh repo create analise_eleicao_2026 --public --source=. --remote=origin --push
-```
-
-(Use `--private` se preferir — GitHub Pages funciona em repositório privado
-também, desde que o plano permita.)
-
-## Licença dos dados
-
-Dados do TSE sob Creative Commons Atribuição. Cite "Tribunal Superior Eleitoral" como fonte no mapa.
+Desenvolvido com o [Claude Code](https://claude.com/claude-code).

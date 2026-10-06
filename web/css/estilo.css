@@ -699,3 +699,34 @@ main.analises {
 }
 #tooltip .tt-aviso { display: block; margin-top: 3px; font-size: 11px; color: #f0d58a; }
 #tooltip span { display: block; }
+
+/* ------------------- aviso de projeto não oficial (rodapé) --------------- */
+#pe-aviso { flex: 1 1 100%; color: var(--tinta-fraca); }
+#pe-aviso a { color: var(--destaque); }
+.rodape-aviso {
+  border-top: 1px solid var(--linha);
+  background: #fff;
+  padding: 14px 18px 18px;
+  font-size: 13px;
+  color: var(--tinta-fraca);
+  text-align: center;
+}
+.rodape-aviso p { max-width: 820px; margin: 0 auto; }
+.rodape-aviso a { color: var(--destaque); }
+@media (max-width: 820px) {
+  #pe { font-size: 11px; }
+  #pe-aviso { line-height: 1.35; }
+}
+
+/* ------------------ acabamento: CLS e legibilidade (Lighthouse) ---------- */
+/* reserva a altura dos gráficos antes do JSON chegar (evita deslocamento de layout) */
+#g-s1, #g-s2, #g-s3 { min-height: 330px; }
+#g-s5 { min-height: 210px; }
+#g-s4 { min-height: 420px; }
+@media (max-width: 820px) {
+  #g-s4 { min-height: 400px; }
+  #legenda, #legenda h3, #pe, .maplibregl-ctrl-attrib { font-size: 12px; }
+}
+@media (max-width: 420px) {
+  #legenda { font-size: 12px; }
+}

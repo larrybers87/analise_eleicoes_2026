@@ -1,6 +1,6 @@
 # STATUS
 
-Última atualização: 2026-10-06 — F3 fase B entregue: página de análises, modo Swing no mapa, empates sem vencedor.
+Última atualização: 2026-10-06 — acabamento para divulgação: escala do swing por lado, Open Graph, rodapé, README vitrine, licença MIT.
 
 ## Feito
 - **F0 (setup)**: estrutura de pastas, `CLAUDE.md`, docs, `.gitignore`, `environment.yml`, `pyproject.toml`; `.claude/` com agentes `coletor-tse`/`analista-eleitoral` e skills `fechar-sessao`/`tse-dados`; repo no GitHub; ambiente `eleicao2026`.
@@ -23,6 +23,7 @@
   - Novas funções testadas: `swing.delta_margem_municipal`/`_agregado`/`limites_escala_delta`. `docs/ANALISES.md`: definição da Δmargem (+7,1 p.p.) no achado 2 e correção do PT no Sudeste (−2,9, estava −3,0).
   - Dados novos: +209,5KB brutos / +74,0KB gzip. `verificar_export_web.py`: **540 verificações, 0 falhas**. `pytest -q`: **285 passam**.
   - Prints: `docs/img/analises_preview_*.png`, `docs/img/mapa_preview_f3b_*.png`.
+- **Acabamento para divulgação (06/10/2026, D-031, D-032)**: escala do swing com um percentil por lado (−8,64 / +27,34 p.p.); Open Graph/Twitter Card com `web/img/og.png` (1200×627, `scripts/gerar_og.py`); rodapé "projeto pessoal e não oficial" nas duas páginas; README como vitrine; `LICENSE` MIT; favicon; correções de acessibilidade apontadas pelo Lighthouse (ver notas no relatório da sessão). Links das duas páginas checados (200) e console sem erros em desktop e 375px.
 - **Ambiente**: `ruff check .` e `ruff format --check .` verdes. Notebooks de análise com ignores só de formato (`pyproject.toml`, `per-file-ignores`); erros reais continuam valendo.
 
 ## Em andamento
