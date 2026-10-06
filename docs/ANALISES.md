@@ -38,7 +38,7 @@ Snapshot de **05/10/2026 02:59** (dia seguinte ao 1º turno). O Brasil ainda est
 
 - **Número** (Spearman, n = 5.570 municípios; denominador do voto: válidos do município): ρ = **−0,75** entre o log do PIB per capita de 2023 e o % do PT. Na regressão WLS ponderada pelo eleitorado, com as demais variáveis controladas, cada 10 vezes a renda está associada a **−17,7 p.p.** no PT (IC 95%: −19,0 a −16,3) e a +16,9 p.p. no PL. R² do modelo completo: 0,56 (PT) e 0,51 (PL).
 - **Gráficos**: `img/analises/perfil_coeficientes_pt_pl.png`
-- **Ressalvas**: falácia ecológica: município mais rico não significa eleitor mais rico votando diferente. O PIB é de 2023 e a população é do Censo 2022, ambos defasados em relação ao eleitorado de 2026. O efeito de renda é o mesmo efeito de urbanização e de estrutura regional, que não está separado aqui.
+- **Ressalvas**: falácia ecológica: município mais rico não significa eleitor mais rico votando diferente. O PIB é de 2023 e a população é do Censo 2022, ambos defasados em relação ao eleitorado de 2026. A renda pode carregar efeitos de urbanização e de estrutura regional, que não foram separados aqui.
 - **Vale virar seção no site?** Sim, mas como correlação municipal, com o aviso de falácia ecológica na própria seção, e sem o modelo de regressão, que o leitor não consegue interpretar.
 
 ## 6. Escolaridade superior tem sinal invertido quando a renda entra no modelo; o VIF não alerta, mas a colinearidade existe
@@ -66,7 +66,7 @@ Snapshot de **05/10/2026 02:59** (dia seguinte ao 1º turno). O Brasil ainda est
 
 - **Número** (% sobre válidos do recorte, ponderado): nas **27 capitais**, PT 44,9% e PL 45,5% (empate técnico, 0,6 p.p.). No **interior** (5.544 municípios), PT 45,2% e PL 47,5%. Por porte do município: PT lidera em <10 mil eleitores (49,0% × 44,9%) e em 10–50 mil (50,8% × 43,3%); PL lidera em 50–200 mil (51,2% × 40,8%) e em 200 mil–1 milhão (50,5% × 40,3%); em >1 milhão, PT tem 45,4% e PL 44,8%.
 - **Gráficos**: `img/analises/panorama_capitais_interior.png`, `img/analises/panorama_faixa_eleitorado.png`
-- **Ressalvas**: capital × interior e porte são recortes ecológicos. O recorte de porte mistura regiões (municípios de 10–50 mil eleitores são mais numerosos no Nordeste e no Sul), então não é um efeito de porte isolado.
+- **Ressalvas**: capital × interior e porte são recortes ecológicos. O recorte de porte não controla a composição regional de cada faixa, então não isola um efeito de porte.
 - **Vale virar seção no site?** Sim, como tabela de referência, sem gráfico de correlação.
 
 ## 10. Lente secundária: PL 2026 (1º turno) acima do teto de Bolsonaro no 2º turno 2022 em 67% dos municípios
@@ -80,14 +80,14 @@ Snapshot de **05/10/2026 02:59** (dia seguinte ao 1º turno). O Brasil ainda est
 
 - **Número** (denominador: eleitorado): abstenção BR de **20,8%** em 2026 e **20,8%** em 2022 (sem exterior). Por região em 2026: Nordeste 18,4%, Norte 19,4%, Sul 20,5%, Centro-Oeste 21,7%, Sudeste 22,7%. Nulos (denominador: comparecimento): Nordeste 3,4%, Sudeste 3,2%, Norte 2,4%, Centro-Oeste 2,1%, Sul 1,9%. Brancos: Sudeste 2,2%, Nordeste 1,7%, Sul 1,9%, Centro-Oeste 1,2%, Norte 1,0%. No ranking por abstenção (corte de 10 mil eleitores), **14 dos 20** municípios com maior abstenção são de Minas Gerais; o maior é Rio Vermelho/MG, com 40,1% dos eleitores.
 - **Gráficos**: `img/analises/participacao_correlacao_facultativa.png`
-- **Ressalvas**: o corte de 10 mil é uma escolha (D-021). A tabela de sensibilidade mostra que o top-20 muda de forma importante com cortes vizinhos (Jaccard 0,18 sem corte, 0,25 com 5 mil). Os nulos incluem os técnicos (`nulos_tvn`), que são 0,1% do comparecimento e não mudam a conclusão regional.
+- **Ressalvas**: o corte de 10 mil é uma escolha (D-021). A tabela de sensibilidade mostra que o top-20 muda de forma importante com cortes vizinhos (Jaccard 0,18 sem corte, 0,25 com 5 mil). Os nulos aqui são `nulos_tvn` (comuns + técnicos); os técnicos somam 5.246 votos, 0,004% do comparecimento, e não mudam a conclusão regional.
 - **Vale virar seção no site?** Sim, como tabela regional. O ranking municipal só com a sensibilidade publicada ao lado.
 
 ## 12. Brancos caem onde há mais jovens de 16–17 anos (correlação ecológica forte, mas confundida)
 
 - **Número** (Spearman, 5.571 municípios): ρ = **−0,59** entre % do eleitorado de 16–17 anos e % de brancos sobre o comparecimento. Com a abstenção, a correlação com 16–17 é fraca (ρ = −0,15) e com 70+ é fraca (ρ = +0,11).
 - **Gráficos**: `img/analises/participacao_correlacao_facultativa.png`
-- **Ressalvas**: falácia ecológica: é uma propriedade de municípios, não de jovens. O 16–17 é mais alto em municípios novos e de crescimento recente, que têm outro perfil de urbanização, de renda e de região. Não se pode separar esses fatores aqui.
+- **Ressalvas**: falácia ecológica: é uma propriedade de municípios, não de jovens. O peso do 16–17 pode carregar urbanização, renda ou região (hipótese; não foi testada aqui). Não há controle por esses fatores aqui, então não é possível dizer qual deles explica a correlação.
 - **Vale virar seção no site?** Não. A correlação forte é tentadora, mas o leitor vai interpretar como comportamento de jovens, o que não é o que os dados mostram.
 
 ## 13. Exterior (recorte à parte): PT 47,6% e PL 43,5% dos válidos; abstenção de 62,7%
