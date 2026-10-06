@@ -47,6 +47,7 @@
 - `.gitignore` bloqueia `data/processed/*secao*` e `*zona*` (F4).
 
 ## Bloqueios / dúvidas abertas
+- **Lighthouse em produção (06/10/2026)**, desempenho / acessibilidade / boas práticas / SEO: mapa no desktop 98/100/100/100, mapa no celular **51**/100/100/100, análises no desktop 93/100/100/100, análises no celular 86/100/100/100. Pendências: no celular, o MapLibre bloqueia a thread principal (~700 ms de TBT, custo de terceiro); o painel do mapa (CLS 0,25) e o texto da seção 1 das análises (CLS 0,17) mudam de altura quando o JSON chega. Nenhuma das duas correções é barata.
 - **Swing do município-mãe de Boa Esperança do Norte/MT**: o município novo saiu do território de outro(s) entre 2022 e 2026, então o swing do município de origem compara áreas diferentes. Não tratado (D-023 só exclui o município novo).
 - **Malha municipal fora de `data/processed/`**: as análises de área (12) e de vizinhança (16) leem a malha do `geobr` (`carga.geometria_municipios_2024`), não um arquivo processado. É a única entrada externa às análises (documentado em `DADOS.md`). Se o usuário preferir regra estrita (só `data/processed/`), é preciso gerar um Parquet da malha, que fica grande demais para versionar.
 - **Divergência residual de BA (3 municípios)**: o backend do TSE segue servindo a geração antiga (`data/known_issues.csv`). Os totais das análises usam o valor do TSE, sem correção.
