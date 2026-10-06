@@ -12,7 +12,8 @@ Fases macro. O detalhe do dia a dia fica no `STATUS.md`.
 
 **F2.1 — Geocodificação do exterior.** As 186 "cidades" do exterior no config do TSE só têm nome, sem coordenadas/país. Construir uma tabela offline (cidade → país/coordenadas aproximadas) para plotar como pontos no mapa-múndi (talvez agregados por país). Lista estática de postos consulares, não muda com frequência — não bloqueia F2.
 
-**F3 — Análises.** Base de enriquecimento ✅ (05/10/2026): Presidente 2022 (1º/2º turno, município), perfil do eleitorado 2026 por município (sexo/faixa etária incl. 16-17 e 70+/grau de instrução), população Censo 2022 + PIB per capita municipal (IBGE) — 6 Parquet novos em `data/processed/`, schemas em `docs/DADOS.md`. Falta: notebooks + página de análises propriamente ditos — votos por região (N/NE/CO/SE/S/exterior), abstenção/brancos/nulos por recorte, distribuição de margens, concentração (ex.: quantos municípios fazem X% dos votos de cada candidato), comparativo 2022→2026, correlação com perfil do eleitorado/IBGE.
+**F3 — Análises.** Base de enriquecimento ✅ (05/10/2026): Presidente 2022 (1º/2º turno, município), perfil do eleitorado 2026 por município (sexo/faixa etária incl. 16-17 e 70+/grau de instrução), população Censo 2022 + PIB per capita municipal (IBGE) — 6 Parquet novos em `data/processed/`, schemas em `docs/DADOS.md`. **Fase A — análises exploratórias** ✅ (06/10/2026): notebooks `notebooks/10_panorama` a `17_filho_da_terra`, funções testadas em `src/eleicao/analise/`, 16 figuras em `docs/img/analises/` e o resumo `docs/ANALISES.md` (achados ranqueados, com ressalvas).
+**Fase B — página de análises no site** ⏳ pendente (não iniciada; `web/` intocado nesta fase). Depende de decisão do usuário sobre quais achados viram seção.
 
 **F4 — Zona/seção.** Quando sair o CSV de seção 2026 (ou via BU, plano B). Mapa por local de votação (pontos) e por zona (polígonos aproximados).
 

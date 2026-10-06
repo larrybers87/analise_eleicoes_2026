@@ -435,3 +435,24 @@ as 2 colunas extras não fazerem parte da partição `pct_faixa_*`.
 para o exterior nem para Fernando de Noronha): `cd_mun_ibge, nm_mun_ibge, populacao_censo_2022,
 pib_mil_reais, pib_per_capita_reais` — ver seção 4 para as fontes e o ano de cada métrica
 (população: Censo 2022; PIB: 2023, o mais recente disponível).
+
+## Recortes de análise (F3 fase A, 06/10/2026)
+
+Usados pelo pacote `src/eleicao/analise/` (decisões em `DECISOES.md` D-020 a D-029). Nada de fonte nova além da malha municipal já usada na F2.
+
+- **Capitais**: `data/processed/capitais.csv` (27 linhas: `uf`, `cd_mun_tse`, `nm_mun`), gerado uma vez por `scripts/persistir_capitais.py` a partir de `data/raw/ele2026/6257/config/mun-e006257-cm.json` (município com `c == "s"`, exatamente 1 por UF, DF incluído). Versionado para o repo ser reproduzível sem `data/raw/`.
+- **Regiões**: mapeamento fixo em `src/eleicao/analise/regioes.py` (IBGE): N (AC, AP, AM, PA, RO, RR, TO); NE (AL, BA, CE, MA, PB, PE, PI, RN, SE); CO (DF, GO, MT, MS); SE = **Sudeste** (ES, MG, RJ, SP); S (PR, RS, SC). O código `SE` é Sudeste, não Sergipe (Sergipe é NE). Exterior (`zz`) = região "Exterior", fora de todo agregado Brasil.
+- **Faixas de porte** (eleitorado 2026 do município): `<10k`, `10k–50k`, `50k–200k`, `200k–1M`, `>1M`. Inferior inclusivo.
+- **Malha municipal para área e vizinhança**: `geobr.read_municipality(year=2024, simplified=False)`, 5.571 municípios, join 1:1 com o TSE por `cd_mun_ibge`. Não está em `data/processed/` (é muito grande para versionar); a leitura fica isolada em `carga.geometria_municipios_2024()`, que baixa pelo `geobr` na primeira vez. Área no CRS Albers equal-area (`+proj=aea +lat_1=-2 +lat_2=-22 +lat_0=-12 +lon_0=-54`, GRS80); a soma das áreas dá 8.496.296 km² (oficial IBGE 8.510.345 km²). EPSG:5880 não é de área equivalente (é Polyconic).
+- **Ilhas sem vizinho (queen)**: Fernando de Noronha (PE) e Ilhabela (SP).
+- **Pareamento 2022→2026** (`swing.parear`): 5.706 pares, 52 fora com motivo em `sem_par`:
+  - 8 sem par: Vaticano (zz 99252, só 2022); Boa Esperança do Norte (MT 73709, município criado após 2022); postos novos de 2026 (zz 29629 Dacca, 99279 Santa Elena de Uairén, 99295 Pyongyang, 99490 Orlando, 99503 Edimburgo, 99511 Marselha).
+  - 44 postos (todos `zz`) com **zero votos válidos em 2022 ou 2026**: % indefinido (0/0). Não entram no swing nem em agregado.
+
+## Armadilhas do ambiente (descobertas em 06/10/2026)
+
+- **Crash do interpretador com BLAS MKL no Windows**: no env `eleicao2026`, `numpy`/`scipy` com MKL 2026.1.0 derrubavam o processo (`Windows fatal exception: code 0xc06d007f`, exit 127, sem traceback) em `np.cov`, `matmul`, `scipy.stats.spearmanr` e `scipy.stats.f_oneway`. Sintoma: script sem saída (com stdout em pipe, o buffer se perde), exit 127. Diagnóstico com `python -X faulthandler`. Conserto: trocar para OpenBLAS (`libblas/libcblas/liblapack=*=*openblas`, ver `environment.yml` e `DECISOES.md` D-020).
+- **Postos consulares com zero votos válidos**: 44 postos `zz` têm `validos = 0` em 2022 ou em 2026 (ex.: Abuja, Adis Abeba, Astana). Qualquer % sobre válidos desses postos é 0/0; não tratar como zero.
+- **Divergência conhecida de BA** (`data/known_issues.csv`) continua afetando as somas de Flávio (nº 22): soma dos municípios − total BR = −236 votos, e de Lula (nº 13): −967. Os testes de invariante exigem exatamente esses valores.
+- **Municípios com `comparecimento + abstenção ≠ eleitorado`**: 3 municípios da BA (33693, 34673, 36013), os da divergência conhecida. Entram nos agregados com o valor do TSE (sem correção).
+- **Empates exatos sem vencedor**: SP 62448 e TO 73555 (2 municípios). `vencedor_municipal` devolve `nr_vencedor = None` e margem 0; não entram nas contagens de vencedores.

@@ -17,6 +17,13 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
+[tool.ruff.lint.per-file-ignores]
+# Notebooks de análise: formato de célula (linhas longas, `;`, imports em linha) e o cabeçalho
+# com sys.path antes dos imports (E402) não são revisados aqui. Erros reais (F, B) continuam
+# valendo. A lógica fica nas funções testadas em src/eleicao/analise/.
+"notebooks/*.ipynb" = ["E402", "F401", "I001", "E501", "E702", "E401", "B905"]
+
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["geo: usa a malha municipal do geobr (rede/cache, ~10 s)"]
