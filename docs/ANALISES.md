@@ -27,12 +27,13 @@ Snapshot de **05/10/2026 02:59** (dia seguinte ao 1º turno). O Brasil ainda est
 - **Ressalvas**: área é proxy geográfico. Município grande e pouco povoado pesa na área e quase nada no eleitorado. Área em Albers equal-area; EPSG:5880 não serve para isso (D-022).
 - **Vale virar seção no site?** Sim. O mapa de vencedores é o que o leitor vê primeiro, e este número mostra que a leitura visual engana sobre o peso dos votos.
 
-## 4. Os votos de Lula estão mais espalhados que os de Flávio; os de Renan e de Caiado estão concentrados
+## 4. Lula espalha mais votos entre municípios que Flávio; Renan concentra votos em cidades grandes, mas seu apoio em % é uniforme; Caiado concentra o apoio em Goiás
 
-- **Número** (5 candidatos acima de 1% nacional; denominador: municípios brasileiros, 5.571): para chegar a 50% dos votos, Lula precisa de **270** municípios (ordenados do maior para o menor), Flávio de **190**, Cury de 138, Caiado de 106 e Renan de **99**. O Gini dos votos absolutos vai de 0,70 (Lula) a 0,81 (Renan). O Gini sobre o % de válidos de cada município é 0,21–0,24 para Lula, Flávio e Cury (e 0,24 para Renan), mas **0,44 para Caiado**, o dobro.
+- **Número** (5 candidatos acima de 1% nacional; denominador: 5.571 municípios brasileiros). Concentração de **votos absolutos** (Gini de votos e nº de municípios para 50% dos votos): para chegar a 50%, Lula precisa de **270** municípios (do maior para o menor), Flávio de **190**, Cury de 138, Caiado de 106 e Renan de **99**. O Gini de votos absolutos vai de 0,70 (Lula) a 0,81 (Renan). Esse Gini mede também o tamanho dos municípios: Renan é concentrado porque tem muitos votos nas cidades grandes. Concentração de **% sobre válidos** (Gini de % por município, cada um com peso 1): Renan 0,24, Lula 0,22, Flávio 0,22, Cury 0,21 (apoio uniforme entre municípios) e **Caiado 0,44**, o dobro, porque o apoio dele é regional (GO; ver achado 1).
 - **Gráfico**: `img/analises/concentracao_lorenz.png`
-- **Ressalvas**: o Gini de votos absolutos mede também o tamanho dos municípios, então um candidato forte nas capitais tem Gini alto sem ser "regional". O Gini de % é a medida que responde a "apoio disperso ou concentrado". Concentração entre municípios não diz quem votou em quem dentro de cada município.
-- **Vale virar seção no site?** Não como seção própria. Serve como nota de rodapé na seção de redutos (item 1), porque repete a mesma história de forma mais difícil de ler.
+- **Ressalvas**: os dois Ginis respondem perguntas diferentes e não devem ser lidos como uma só medida. Concentração entre municípios não diz quem votou em quem dentro de cada município.
+- **Vale virar seção no site?** Não como seção própria. Serve como nota na seção de redutos (achado 1), porque o contraste entre Caiado (concentrado em % ) e Renan (uniforme em %) é mais claro ali.
+
 
 ## 5. A renda é o correlato mais forte do voto no PT entre municípios
 
@@ -41,12 +42,13 @@ Snapshot de **05/10/2026 02:59** (dia seguinte ao 1º turno). O Brasil ainda est
 - **Ressalvas**: falácia ecológica: município mais rico não significa eleitor mais rico votando diferente. O PIB é de 2023 e a população é do Censo 2022, ambos defasados em relação ao eleitorado de 2026. A renda pode carregar efeitos de urbanização e de estrutura regional, que não foram separados aqui.
 - **Vale virar seção no site?** Sim, mas como correlação municipal, com o aviso de falácia ecológica na própria seção, e sem o modelo de regressão, que o leitor não consegue interpretar.
 
-## 6. Escolaridade superior tem sinal invertido quando a renda entra no modelo; o VIF não alerta, mas a colinearidade existe
+## 6. Escolaridade superior e renda andam juntas; controlar a renda atenua o coeficiente da escolaridade, sem inverter o sinal
 
-- **Número**: correlação ecológica entre % de superior completo e log do PIB pc: ρ = **0,65**. Bivariada com o % do PT: ρ = −0,65. No modelo WLS completo, o coeficiente do superior completo é **−0,35 p.p.** por p.p. para o PT (IC: −0,42 a −0,28) e **+0,24** para o PL. O VIF máximo é 5,2 (faixa 60–69), abaixo do limite usual de 10, então o VIF sozinho não acusa a colinearidade.
+- **Número**: correlação ecológica (Spearman, 5.570 municípios) entre % de superior completo e log do PIB pc: ρ = **0,65**. Bivariadas com o voto: ρ = **−0,65** com o % do PT e ρ = **+0,63** com o % do PL. Na regressão WLS, o coeficiente do superior completo (p.p. de válidos por p.p. de eleitorado) passa de **−0,58** no modelo básico, sem renda nem porte (IC 95%: −0,65 a −0,52), para **−0,35** no completo (IC: −0,42 a −0,28): atenuação de cerca de 40%, mesmo sinal. Para o PL, passa de **+0,44** (IC: 0,37 a 0,51) para **+0,24** (IC: 0,17 a 0,31): atenuação de cerca de 45%, mesmo sinal. O VIF do superior completo é **2,14** e o do log PIB pc é **1,87** (modelo completo); os dois são baixos, porque o VIF mede a parte de cada variável que as outras explicam, e a correlação par a par de 0,65 não entra com força nessa conta.
 - **Gráficos**: `img/analises/perfil_coeficientes_pt_pl.png`
-- **Ressalvas**: o sinal do superior muda com o controle de renda, o que é o comportamento típico de variáveis colineares. Não interprete o coeficiente de escolaridade isoladamente. Os coeficientes de idade e de sexo também são ecológicos.
-- **Vale virar seção no site?** Não. O achado é um aviso metodológico, e o público vai ler o sinal como efeito causal de escolaridade.
+- **Ressalvas**: a atenuação é o que se espera quando duas variáveis dividem variância: parte do efeito que o superior tinha sozinho é atribuída à renda. Não é possível separar as duas contribuições com esses dados. Não interprete o coeficiente de escolaridade como efeito próprio. Os coeficientes são ecológicos (nível município).
+- **Vale virar seção no site?** Não. O achado é um aviso metodológico, e o público vai ler o coeficiente como efeito causal de escolaridade.
+
 
 ## 7. O voto é espacialmente agrupado de forma extrema
 
@@ -62,12 +64,13 @@ Snapshot de **05/10/2026 02:59** (dia seguinte ao 1º turno). O Brasil ainda est
 - **Ressalvas**: o teste é sobre municípios, não eleitores. Como eta² ainda é moderado, a região não explica tudo: dentro de cada região o swing varia muito.
 - **Vale virar seção no site?** Sim. É a resposta mais direta à pergunta "onde mudou", com o aviso de que o efeito regional é real mas parcial.
 
-## 9. Nas capitais, PT e PL empatam; PT lidera em municípios pequenos e PL lidera nos grandes
+## 9. Nas capitais, PT e PL empatam; PL lidera nas cidades de 50 mil a 1 milhão de eleitores e PT no porte pequeno e no grupo acima de 1 milhão
 
-- **Número** (% sobre válidos do recorte, ponderado): nas **27 capitais**, PT 44,9% e PL 45,5% (empate técnico, 0,6 p.p.). No **interior** (5.544 municípios), PT 45,2% e PL 47,5%. Por porte do município: PT lidera em <10 mil eleitores (49,0% × 44,9%) e em 10–50 mil (50,8% × 43,3%); PL lidera em 50–200 mil (51,2% × 40,8%) e em 200 mil–1 milhão (50,5% × 40,3%); em >1 milhão, PT tem 45,4% e PL 44,8%.
+- **Número** (% sobre válidos do recorte, ponderado): nas **27 capitais**, PT 44,9% e PL 45,5% (empate técnico, 0,6 p.p.). No **interior** (5.544 municípios), PT 45,2% e PL 47,5%. Por porte do município (eleitorado de 2026), PT × PL: <10 mil, 49,0% × 44,9% (PT); 10–50 mil, 50,8% × 43,3% (PT); **50–200 mil, 40,8% × 51,2% (PL)**; **200 mil–1 milhão, 40,3% × 50,5% (PL)**; >1 milhão, 45,4% × 44,8% (PT, por 0,6 p.p.; são só **12** municípios).
 - **Gráficos**: `img/analises/panorama_capitais_interior.png`, `img/analises/panorama_faixa_eleitorado.png`
-- **Ressalvas**: capital × interior e porte são recortes ecológicos. O recorte de porte não controla a composição regional de cada faixa, então não isola um efeito de porte.
+- **Ressalvas**: capital × interior e porte são recortes ecológicos. O recorte de porte não controla a composição regional de cada faixa, então não isola um efeito de porte. O grupo >1 milhão tem 12 municípios, e a diferença de 0,6 p.p. nele não é robusta.
 - **Vale virar seção no site?** Sim, como tabela de referência, sem gráfico de correlação.
+
 
 ## 10. Lente secundária: PL 2026 (1º turno) acima do teto de Bolsonaro no 2º turno 2022 em 67% dos municípios
 
@@ -76,12 +79,13 @@ Snapshot de **05/10/2026 02:59** (dia seguinte ao 1º turno). O Brasil ainda est
 - **Ressalvas principais**: **1º e 2º turno não são comparáveis diretamente.** O 2º turno é binário, com outro comparecimento e dinâmica de rejeição. A lente é só a posição de um número em relação a outro. Não é projeção, e não indica que o PL "ganharia" o 2º turno. O nº 22 em 2022 era Jair Bolsonaro; em 2026, Flávio.
 - **Vale virar seção no site?** Não. Pelo risco de leitura como projeção, fica como nota interna.
 
-## 11. Abstenção nacional está estável (20,8%); a variação regional e municipal é grande
+## 11. Abstenção nacional está estável (20,8%); a variação regional é grande
 
-- **Número** (denominador: eleitorado): abstenção BR de **20,8%** em 2026 e **20,8%** em 2022 (sem exterior). Por região em 2026: Nordeste 18,4%, Norte 19,4%, Sul 20,5%, Centro-Oeste 21,7%, Sudeste 22,7%. Nulos (denominador: comparecimento): Nordeste 3,4%, Sudeste 3,2%, Norte 2,4%, Centro-Oeste 2,1%, Sul 1,9%. Brancos: Sudeste 2,2%, Nordeste 1,7%, Sul 1,9%, Centro-Oeste 1,2%, Norte 1,0%. No ranking por abstenção (corte de 10 mil eleitores), **14 dos 20** municípios com maior abstenção são de Minas Gerais; o maior é Rio Vermelho/MG, com 40,1% dos eleitores.
+- **Número** (denominador: eleitorado): abstenção BR de **20,8%** em 2026 e **20,8%** em 2022 (sem exterior). Por região em 2026: Nordeste 18,4%, Norte 19,4%, Sul 20,5%, Centro-Oeste 21,7%, Sudeste 22,7%. Nulos (denominador: comparecimento): Nordeste 3,4%, Sudeste 3,2%, Norte 2,4%, Centro-Oeste 2,1%, Sul 1,9%. Brancos: Sudeste 2,2%, Nordeste 1,7%, Sul 1,9%, Centro-Oeste 1,2%, Norte 1,0%.
 - **Gráficos**: `img/analises/participacao_correlacao_facultativa.png`
-- **Ressalvas**: o corte de 10 mil é uma escolha (D-021). A tabela de sensibilidade mostra que o top-20 muda de forma importante com cortes vizinhos (Jaccard 0,18 sem corte, 0,25 com 5 mil). Os nulos aqui são `nulos_tvn` (comuns + técnicos); os técnicos somam 5.246 votos, 0,004% do comparecimento, e não mudam a conclusão regional.
-- **Vale virar seção no site?** Sim, como tabela regional. O ranking municipal só com a sensibilidade publicada ao lado.
+- **Ressalvas**: os nulos aqui são `nulos_tvn` (comuns + técnicos); os técnicos somam 5.246 votos, 0,004% do comparecimento, e não mudam a conclusão regional. O ranking municipal de abstenção depende muito do corte de eleitorado: o top-20 muda quase por completo entre cortes vizinhos (Jaccard 0,18 sem corte, 0,25 com corte de 5 mil; D-021). Por isso o ranking municipal não é apresentado como achado. Hipótese não testada: parte da abstenção alta concentrada em Minas Gerais pode refletir cadastro desatualizado (eleitores que já não moram no município); os dados usados não permitem testar isso.
+- **Vale virar seção no site?** Sim, só a tabela regional. O ranking municipal não vai para o site, por instabilidade.
+
 
 ## 12. Brancos caem onde há mais jovens de 16–17 anos (correlação ecológica forte, mas confundida)
 
@@ -92,7 +96,7 @@ Snapshot de **05/10/2026 02:59** (dia seguinte ao 1º turno). O Brasil ainda est
 
 ## 13. Exterior (recorte à parte): PT 47,6% e PL 43,5% dos válidos; abstenção de 62,7%
 
-- **Número** (denominador: válidos do exterior, 330.882; eleitorado do exterior, 916.534): PT 47,6%, PL 43,5%. Abstenção sobre o eleitorado de 62,7%. 186 postos; 38 deles têm zero votos válidos em 2026 (ver `sem_par`, que também lista os 44 postos com zero válido em 2022 ou 2026).
+- **Número** (denominador: válidos do exterior, 330.882; eleitorado do exterior, 916.534): PT 47,6%, PL 43,5%. Abstenção sobre o eleitorado de **62,66%** (574.345 ÷ 916.534). Os 186 postos incluem **41 com zero votos válidos em 2026** (eleitorado somado de 495; comparecimento zero). Esses postos entram no denominador. Sem eles, a abstenção fica em **62,69%** (574.273 ÷ 916.039): a diferença é de 0,03 p.p., porque são só 0,05% do eleitorado. Os 41 postos não são idênticos aos 40 em que a seção nunca foi instalada (`esi = 0`, eleitorado 423): são conjuntos parecidos, mas não iguais.
 - **Gráficos**: `img/analises/panorama_regioes_pt_pl.png` (o exterior não aparece no gráfico, só nos números)
 - **Ressalvas**: exterior não é Brasil. Postos consulares têm eleitorado muito pequeno e variam de ano para ano (6 postos novos e 1 extinto em 2026). Não some com o Brasil em nenhum agregado.
 - **Vale virar seção no site?** Não. A tabela de postos que já existe no mapa (F2) é suficiente.
