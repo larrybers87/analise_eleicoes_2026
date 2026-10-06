@@ -247,3 +247,48 @@ def test_rampa_oklab_rejeita_menos_de_2_stops():
 def test_escala_forca_rejeita_candidato_fora_da_paleta():
     with pytest.raises(KeyError):
         escala_forca(999, PALETA)
+
+
+# ============ escala divergente assimétrica do swing (D-030) =================
+
+from eleicao.cores import N_STOPS_LADO_DIVERGENTE, escala_divergente_assimetrica  # noqa: E402
+
+ESCALA_SW = escala_divergente_assimetrica(-0.8, 27.0, PALETA[13], PALETA[22])
+
+
+def test_divergente_tem_2n_menos_1_stops_e_valores_crescentes():
+    assert len(ESCALA_SW) == 2 * N_STOPS_LADO_DIVERGENTE - 1
+    valores = [v for v, _ in ESCALA_SW]
+    assert all(a < b for a, b in zip(valores, valores[1:], strict=False))
+    assert valores[0] == -0.8 and valores[-1] == 27.0
+
+
+def test_divergente_zero_e_neutro_exato():
+    centro = dict(ESCALA_SW)
+    assert centro[0.0] == NEUTRO_EMPATE_HEX
+    assert ESCALA_SW[N_STOPS_LADO_DIVERGENTE - 1] == (0.0, NEUTRO_EMPATE_HEX)
+
+
+def test_divergente_pontas_com_hex_da_paleta():
+    assert ESCALA_SW[0][1] == PALETA[13]
+    assert ESCALA_SW[-1][1] == PALETA[22]
+
+
+def test_divergente_luminosidade_monotonica_em_cada_lado():
+    n = N_STOPS_LADO_DIVERGENTE
+    lums = [luminosidade_oklab(c) for _, c in ESCALA_SW]
+    neg, pos = lums[:n], lums[n - 1 :]
+    assert all(a < b for a, b in zip(neg, neg[1:], strict=False)), neg  # escuro -> claro
+    assert all(a > b for a, b in zip(pos, pos[1:], strict=False)), pos  # claro -> escuro
+
+
+def test_divergente_limites_nao_sao_espelhados():
+    valores = [v for v, _ in ESCALA_SW]
+    assert valores[0] != -valores[-1]
+
+
+def test_divergente_rejeita_limites_invalidos():
+    with pytest.raises(ValueError):
+        escala_divergente_assimetrica(0.0, 10.0, PALETA[13], PALETA[22])
+    with pytest.raises(ValueError):
+        escala_divergente_assimetrica(-1.0, 0.0, PALETA[13], PALETA[22])

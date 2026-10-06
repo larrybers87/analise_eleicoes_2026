@@ -19,6 +19,7 @@ grupo nos agregados ponderados).
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 from scipy import stats
 
@@ -225,3 +226,86 @@ def contagem_acima_do_teto(lente: pd.DataFrame, grupo: str = "regiao") -> pd.Dat
     )
     g["pct_municipios_acima_do_teto"] = 100 * g["n_acima_do_teto"] / g["n_municipios"]
     return g
+
+
+def delta_margem_municipal(swing_pt: pd.DataFrame, swing_pl: pd.DataFrame) -> pd.DataFrame:
+    """Variação da margem do PL sobre o PT, 1T 2022 → 1T 2026, por município pareado.
+
+    Definição (docs/DECISOES.md D-030):
+        delta_margem_pp = (pl_2026 - pt_2026) - (pl_2022 - pt_2022)
+    em p.p. de válidos de cada ano. É idêntico a `swing_pl - swing_pt`. Positivo = a margem
+    andou a favor do PL; negativo = a favor do PT; zero = sem mudança na margem.
+
+    `swing_pt`/`swing_pl`: saídas de `swing_municipal` (nr 13 e nr 22) com a MESMA base de
+    pareados. Base diferente levanta erro. Identidade do nr 22: Jair (2022) → Flávio (2026).
+    """
+    cols = [*CHAVE, "pct_2022", "pct_2026", "swing_pp"]
+    a = swing_pt[cols].rename(
+        columns={"pct_2022": "pt_2022", "pct_2026": "pt_2026", "swing_pp": "swing_pt_pp"}
+    )
+    b = swing_pl[cols].rename(
+        columns={"pct_2022": "pl_2022", "pct_2026": "pl_2026", "swing_pp": "swing_pl_pp"}
+    )
+    out = a.merge(b, on=CHAVE, how="outer", validate="1:1", indicator=True)
+    if (out["_merge"] != "both").any():
+        raise ValueError("swing do PT e do PL com bases de municípios diferentes")
+    out = out.drop(columns="_merge")
+    out["delta_margem_pp"] = (out["pl_2026"] - out["pt_2026"]) - (out["pl_2022"] - out["pt_2022"])
+    return out
+
+
+def delta_margem_agregado(
+    swing_pt: pd.DataFrame, swing_pl: pd.DataFrame, grupo: str | None = None
+) -> pd.DataFrame:
+    """Δmargem AGREGADA (ponderada): soma de votos ÷ soma de válidos, nos dois anos.
+
+    Mesma base de municípios para PT e PL (as duas tabelas vêm de `swing_municipal` sobre os
+    mesmos pareados). `grupo=None` agrega tudo numa linha (`grupo` = "total"). Não é média do
+    delta municipal.
+    """
+    if len(swing_pt) != len(swing_pl):
+        raise ValueError("swing do PT e do PL com bases de municípios diferentes")
+    chave = grupo or "_grupo"
+    pt = swing_pt.assign(_grupo="total") if grupo is None else swing_pt
+    pl = swing_pl.assign(_grupo="total") if grupo is None else swing_pl
+    a = agregado_ponderado(pt, chave)[[chave, "pct_2022_agregado", "pct_2026_agregado"]]
+    b = agregado_ponderado(pl, chave)[[chave, "pct_2022_agregado", "pct_2026_agregado"]]
+    m = a.merge(b, on=chave, suffixes=("_pt", "_pl"), validate="1:1")
+    out = pd.DataFrame(
+        {
+            chave: m[chave],
+            "pt_2022": m["pct_2022_agregado_pt"],
+            "pt_2026": m["pct_2026_agregado_pt"],
+            "pl_2022": m["pct_2022_agregado_pl"],
+            "pl_2026": m["pct_2026_agregado_pl"],
+        }
+    )
+    out["swing_pt_pp"] = out["pt_2026"] - out["pt_2022"]
+    out["swing_pl_pp"] = out["pl_2026"] - out["pl_2022"]
+    out["delta_margem_pp"] = (out["pl_2026"] - out["pt_2026"]) - (out["pl_2022"] - out["pt_2022"])
+    return out.rename(columns={"_grupo": "grupo"}) if grupo is None else out
+
+
+PERCENTIS_ESCALA_DELTA = (1, 99)
+"""Percentis que saturam a escala divergente do modo "Swing" do mapa (D-030)."""
+
+
+def limites_escala_delta(delta_pp: pd.Series) -> tuple[float, float]:
+    """(limite negativo, limite positivo) da escala do swing: p1 e p99 do Δmargem municipal.
+
+    Assimétrica de propósito (não espelha): cada lado satura no próprio percentil. Se um dos
+    lados não existir no percentil (ex.: p1 ≥ 0, quase nenhum município andou para o PT), usa
+    o extremo observado daquele lado; se nem isso existir, levanta erro (a escala divergente
+    não faz sentido sem os dois lados).
+    """
+    d = delta_pp.dropna().to_numpy(dtype=float)
+    if d.size == 0:
+        raise ValueError("Δmargem vazio")
+    neg, pos = (float(np.percentile(d, p)) for p in PERCENTIS_ESCALA_DELTA)
+    if neg >= 0:
+        neg = float(d.min())
+    if pos <= 0:
+        pos = float(d.max())
+    if not neg < 0 < pos:
+        raise ValueError("Δmargem sem valores dos dois lados de zero")
+    return neg, pos

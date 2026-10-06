@@ -15,7 +15,7 @@ Snapshot de **05/10/2026 02:59** (dia seguinte ao 1º turno). O Brasil ainda est
 
 ## 2. A média simples dos municípios distorce o swing; o agregado ponderado é outro número
 
-- **Número**: swing do PT (nº 13) 1T22→1T26 agregado, sobre válidos e ponderado: Brasil −3,3 p.p. (48,4% → 45,2%). A **mediana** municipal é −5,5 p.p. e a média simples no Centro-Oeste é −8,7 p.p., contra −5,2 p.p. no agregado ponderado. Para o PL (nº 22), o agregado é +3,8 p.p. (43,2% → 47,0%) e a mediana municipal é +5,6 p.p. (denominador do agregado: válidos de cada ano, mesma base de 5.570 municípios).
+- **Número**: swing do PT (nº 13) 1T22→1T26 agregado, sobre válidos e ponderado: Brasil −3,3 p.p. (48,4% → 45,2%). A **mediana** municipal é −5,5 p.p. e a média simples no Centro-Oeste é −8,7 p.p., contra −5,2 p.p. no agregado ponderado. Para o PL (nº 22), o agregado é +3,8 p.p. (43,2% → 47,0%) e a mediana municipal é +5,6 p.p. (denominador do agregado: válidos de cada ano, mesma base de 5.570 municípios). **Δmargem** (variação da margem do PL sobre o PT, definida como (PL 2026 − PT 2026) − (PL 2022 − PT 2022), em p.p. de válidos de cada ano, agregado ponderado na mesma base): **+7,1 p.p.** (D-030).
 - **Gráfico**: `img/analises/swing_agregado_regiao.png`, `img/analises/swing_histograma.png`
 - **Ressalvas**: a diferença vem de porte. Municípios pequenos, com swing maior, pesam o mesmo que os grandes na média simples. Isso não é erro, mas é uma definição diferente, e quem lê um "swing médio" precisa saber qual das duas está sendo dita. A identidade do nº 22 muda (Jair → Flávio).
 - **Vale virar seção no site?** Sim, mas só com o agregado ponderado e com a média simples explicitamente rotulada, porque a diferença entre elas é grande o bastante para virar manchete errada.
@@ -59,7 +59,7 @@ Snapshot de **05/10/2026 02:59** (dia seguinte ao 1º turno). O Brasil ainda est
 
 ## 8. A mudança de 2022 para 2026 não é uniforme entre as regiões
 
-- **Número** (swing agregado ponderado, p.p. de válidos): PT cai **−5,5** no Sul, **−5,2** no Centro-Oeste, **−3,0** no Nordeste, **−3,0** no Sudeste e **−2,4** no Norte. PL sobe **+5,5** no Sul, **+3,9** no Nordeste, **+3,8** no Sudeste, **+3,7** no Norte e **+2,7** no Centro-Oeste. Teste de uniformidade (5.570 municípios): Kruskal-Wallis H = 1.303 para o PT e 687 para o PL; a região explica **23%** da variância municipal do swing do PT (eta² = 0,23) e **15%** do swing do PL (eta² = 0,15). Os p-valores são todos menores que 0,001, mas com n tão grande o que importa é o eta².
+- **Número** (swing agregado ponderado, p.p. de válidos): PT cai **−5,5** no Sul, **−5,2** no Centro-Oeste, **−3,0** no Nordeste, **−2,9** no Sudeste e **−2,4** no Norte. PL sobe **+5,5** no Sul, **+3,9** no Nordeste, **+3,8** no Sudeste, **+3,7** no Norte e **+2,7** no Centro-Oeste. Teste de uniformidade (5.570 municípios): Kruskal-Wallis H = 1.303 para o PT e 687 para o PL; a região explica **23%** da variância municipal do swing do PT (eta² = 0,23) e **15%** do swing do PL (eta² = 0,15). Os p-valores são todos menores que 0,001, mas com n tão grande o que importa é o eta².
 - **Gráficos**: `img/analises/swing_agregado_regiao.png`, `img/analises/swing_mapa_pl.png`
 - **Ressalvas**: o teste é sobre municípios, não eleitores. Como eta² ainda é moderado, a região não explica tudo: dentro de cada região o swing varia muito.
 - **Vale virar seção no site?** Sim. É a resposta mais direta à pergunta "onde mudou", com o aviso de que o efeito regional é real mas parcial.

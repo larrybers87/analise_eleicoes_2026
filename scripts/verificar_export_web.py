@@ -37,9 +37,14 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from eleicao import config, forca  # noqa: E402
+from eleicao.analise import composicao  # noqa: E402
+from eleicao.analise import swing as sw  # noqa: E402
+from eleicao.analise.base import vencedor_municipal  # noqa: E402
 from eleicao.cores import (  # noqa: E402
+    NEUTRO_EMPATE_HEX,
     agrupar_outros,
     carregar_paleta,
+    escala_divergente_assimetrica,
     escala_forca,
     escala_forca_neutra,
     mistura_oklab,
@@ -64,7 +69,13 @@ CAMPOS = [
     "data_hora_totalizacao",
 ]
 
-PADRAO_MUNICIPIOS = ["ba:33693", "mg:41556", "sp:71072"]
+PADRAO_MUNICIPIOS = [
+    "ba:33693",
+    "mg:41556",
+    "sp:71072",
+    "sp:62448",
+    "to:73555",
+]  # 2 últimos: empates
 PADRAO_UFS = ["ba", "sp"]
 
 
@@ -118,21 +129,18 @@ def conferir(f: Falhas, rotulo: str, reg: dict, linha: pd.Series, votos: dict[in
         mistura_oklab(votos, paleta),
         reg["cor_mistura"],
     )
-    f.checar(
-        reg["cor_margem"] == vencedor_margem(votos, paleta),
-        f"{rotulo}.cor_margem",
-        vencedor_margem(votos, paleta),
-        reg["cor_margem"],
-    )
     ordenado = sorted(votos.items(), key=lambda it: it[1], reverse=True)
     total = sum(votos.values())
     margem = round((ordenado[0][1] - ordenado[1][1]) / total * 100, 3)
+    # recálculo INDEPENDENTE do vencedor (não usa a função do export): empate exato = sem
+    # vencedor e cor neutra (D-030)
+    empate = ordenado[0][1] == ordenado[1][1]
+    esperado_venc = None if empate else int(ordenado[0][0])
+    esperado_cor = NEUTRO_EMPATE_HEX if empate else vencedor_margem(votos, paleta)
     f.checar(
-        reg["vencedor"] == int(ordenado[0][0]),
-        f"{rotulo}.vencedor",
-        ordenado[0][0],
-        reg["vencedor"],
+        reg["cor_margem"] == esperado_cor, f"{rotulo}.cor_margem", esperado_cor, reg["cor_margem"]
     )
+    f.checar(reg["vencedor"] == esperado_venc, f"{rotulo}.vencedor", esperado_venc, reg["vencedor"])
     f.checar(reg["margem_pp"] == margem, f"{rotulo}.margem_pp", margem, reg["margem_pp"])
 
 
@@ -245,11 +253,56 @@ def conferir_f22(
         votos_mun[(u, c)] = dict(
             zip(grupo["nr_candidato"].astype(int), grupo["votos"].astype(int), strict=True)
         )
+    # contagem de vencidos: a FUNÇÃO DA ANÁLISE é a referência (D-030)
+    vw = vencedor_municipal(mun_cand[mun_cand["uf"] != config.UF_EXTERIOR])
     vencidos: dict[int, int] = dict.fromkeys(paleta, 0)
-    for k in chave.values():
-        v = votos_mun.get(k, {})
-        if v:
-            vencidos[max(v.items(), key=lambda it: it[1])[0]] += 1
+    for nr in vw["nr_vencedor"].dropna():
+        vencidos[int(nr)] += 1
+    # empates: recalculados de forma INDEPENDENTE (1º == 2º em votos)
+    empates_indep = set()
+    for ibge, k in chave.items():
+        v = sorted(votos_mun.get(k, {}).values(), reverse=True)
+        if len(v) > 1 and v[0] == v[1] and v[0] > 0:
+            empates_indep.add(ibge)
+    sem_venc = vw[vw["nr_vencedor"].isna()]
+    chaves_sem_venc = set(zip(sem_venc["uf"], sem_venc["cd_mun_tse"], strict=True))
+    empates_func = {i for i, k in chave.items() if k in chaves_sem_venc}
+    f.checar(
+        empates_indep == empates_func, "empates.funcao==independente", empates_indep, empates_func
+    )
+    f.checar(
+        {e[0] for e in resumo["empates"]} == empates_indep,
+        "resumo.empates",
+        sorted(empates_indep),
+        sorted(e[0] for e in resumo["empates"]),
+    )
+    indice = json.loads((WEB_DATA / "resultados" / "municipios_br.json").read_text("utf-8"))
+    campos = indice["formato"]
+    iv, ic = campos.index("vencedor"), campos.index("cor_margem")
+    contagem_indice: dict[Any, int] = {}
+    for ibge, arr in indice["municipios"].items():
+        contagem_indice[arr[iv]] = contagem_indice.get(arr[iv], 0) + 1
+        if ibge in empates_indep:
+            f.checar(arr[iv] is None, f"indice.{ibge}.vencedor_empate", None, arr[iv])
+            f.checar(
+                arr[ic] == NEUTRO_EMPATE_HEX,
+                f"indice.{ibge}.cor_empate",
+                NEUTRO_EMPATE_HEX,
+                arr[ic],
+            )
+    for nr in sorted(paleta):
+        f.checar(
+            contagem_indice.get(nr, 0) == vencidos[nr],
+            f"indice.vencidos[{nr}]",
+            vencidos[nr],
+            contagem_indice.get(nr, 0),
+        )
+    f.checar(
+        contagem_indice.get(None, 0) == len(empates_indep),
+        "indice.sem_vencedor",
+        len(empates_indep),
+        contagem_indice.get(None, 0),
+    )
     for nr in sorted(paleta):
         r = resumo["candidatos"][str(nr)]
         f.checar(
@@ -310,6 +363,83 @@ def conferir_f22(
         esperado_ext_total,
         soma_ext,
     )
+
+
+def conferir_swing(
+    f: Falhas, paleta: dict[int, str], mun_tot: pd.DataFrame, amostra: list[str]
+) -> None:
+    """Modo "Swing 2022→2026" (D-030): escala, swing.json e swing por UF, recalculados."""
+    meta = json.loads((WEB_DATA / "meta.json").read_text("utf-8"))
+    br_json = json.loads((WEB_DATA / "resultados" / "br.json").read_text("utf-8"))
+    arq = json.loads((WEB_DATA / "resultados" / "swing.json").read_text("utf-8"))
+    dados = composicao.swing_pt_pl()
+    pt = dados["pt"][dados["pt"]["uf"] != config.UF_EXTERIOR]
+    pl = dados["pl"][dados["pl"]["uf"] != config.UF_EXTERIOR]
+    dm = sw.delta_margem_municipal(pt, pl)
+    neg, pos = sw.limites_escala_delta(dm["delta_margem_pp"])
+    esc = meta["escala_swing"]
+    f.checar(
+        esc["limite_negativo"] == round(neg, 4),
+        "swing.limite_negativo",
+        round(neg, 4),
+        esc["limite_negativo"],
+    )
+    f.checar(
+        esc["limite_positivo"] == round(pos, 4),
+        "swing.limite_positivo",
+        round(pos, 4),
+        esc["limite_positivo"],
+    )
+    esperado = escala_divergente_assimetrica(neg, pos, paleta[13], paleta[22])
+    f.checar(
+        esc["cores"] == [c for _, c in esperado],
+        "swing.cores",
+        [c for _, c in esperado],
+        esc["cores"],
+    )
+    f.checar(0.0 in esc["valores"], "swing.zero_nos_valores", True, esc["valores"])
+    if 0.0 in esc["valores"]:
+        centro = esc["cores"][esc["valores"].index(0.0)]
+        f.checar(centro == NEUTRO_EMPATE_HEX, "swing.zero_e_neutro", NEUTRO_EMPATE_HEX, centro)
+    ag = sw.delta_margem_agregado(pt, pl).iloc[0]
+    f.checar(
+        esc["br"][2] == round(float(ag["delta_margem_pp"]), 3),
+        "swing.br.delta_margem",
+        round(float(ag["delta_margem_pp"]), 3),
+        esc["br"][2],
+    )
+    por_uf = sw.delta_margem_agregado(pt, pl, "uf").set_index("uf")
+    for item in br_json["ufs"]:
+        u = item["uf"]
+        esp = [
+            round(float(por_uf.loc[u, c]), 3)
+            for c in ("swing_pt_pp", "swing_pl_pp", "delta_margem_pp")
+        ]
+        f.checar(item["swing"] == esp, f"br.ufs[{u}].swing", esp, item["swing"])
+    br_tot = mun_tot[~mun_tot["eh_exterior"]]
+    ordem = sorted(br_tot["cd_mun_ibge"].astype(str), key=int)
+    f.checar(arq["n"] == len(ordem), "swing.n", len(ordem), arq["n"])
+    ibge_de = {
+        (u, str(c)): str(i)
+        for u, c, i in zip(br_tot["uf"], br_tot["cd_mun_tse"], br_tot["cd_mun_ibge"], strict=True)
+    }
+    dmi = dm.assign(
+        ibge=[ibge_de[(u, str(c))] for u, c in zip(dm["uf"], dm["cd_mun_tse"], strict=True)]
+    ).set_index("ibge")
+    pos_de = {i: k for k, i in enumerate(ordem)}
+    for ibge in amostra:
+        k = pos_de[ibge]
+        for campo, col in (("pt", "swing_pt_pp"), ("pl", "swing_pl_pp")):
+            e = round(float(dmi.loc[ibge, col]), 2)
+            e = 0 if e == 0 else e
+            f.checar(arq[campo][k] == e, f"swing.{campo}[{ibge}]", e, arq[campo][k])
+    sem = dados["sem_par"][dados["sem_par"]["uf"] != config.UF_EXTERIOR]
+    esperado_sem = {ibge_de[(u, str(c))] for u, c in zip(sem["uf"], sem["cd_mun_tse"], strict=True)}
+    f.checar(
+        set(arq["sem_par"]) == esperado_sem, "swing.sem_par", esperado_sem, set(arq["sem_par"])
+    )
+    nulos = {ordem[k] for k, v in enumerate(arq["pt"]) if v is None}
+    f.checar(nulos == esperado_sem, "swing.nulos==sem_par", esperado_sem, nulos)
 
 
 def main() -> int:
@@ -414,6 +544,9 @@ def main() -> int:
             amostra_ibge.append(str(linha["cd_mun_ibge"].iloc[0]))
     amostra_ibge += ["3550308", "3157336", "1100015"]  # SP, menor município, 1º da ordem
     conferir_f22(f, paleta, mun_tot, mun_cand, uf_cand, br_cand, sorted(set(amostra_ibge)))
+
+    print("swing 2022→2026 (escala, swing.json, swing por UF)")
+    conferir_swing(f, paleta, mun_tot, sorted(set(amostra_ibge)))
 
     print(f"\n{f.ok} verificações OK, {len(f.itens)} falhas")
     for item in f.itens:

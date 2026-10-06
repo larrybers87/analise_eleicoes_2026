@@ -29,7 +29,8 @@ const S = {
   resumo: null,             // data/resumo_candidatos.json (lazy)
   forca: new Map(),         // nr -> {p98, pct: [5571 números], mapas: Map(escopo -> Map(ibge->pct))}
 
-  modo: 'mistura',          // modo BASE (sem candidato): 'mistura' | 'margem'
+  swing: null,              // data/resultados/swing.json (lazy) + mapas por escopo
+  modo: 'mistura',          // modo BASE (sem candidato): 'mistura' | 'margem' | 'swing'
   candidato: null,          // nr do candidato destacado (null = "Nenhum")
   modoCand: 'venceu',       // modo COM candidato: 'venceu' | 'forca'
   camadaBr: 'uf',           // 'uf' | 'mun'  (só quando não há UF ativa)
@@ -229,6 +230,12 @@ function expressaoCor() {
   if (m === 'mistura' || m === 'margem') {
     return ['coalesce', ['get', CAMPO_COR[m]], '#dddddd'];
   }
+  if (m === 'swing') {
+    // Δmargem PL−PT (p.p.): stops e valores já calculados em Python
+    // (cores.escala_divergente_assimetrica); 0 = neutro exato. Sem par: cinza + hachura.
+    const e = S.meta.escala_swing;
+    return ['case', ['has', 'dm'], interpolar(['get', 'dm'], e.valores, e.cores), e.cor_sem_par];
+  }
   const nr = S.candidato;
   if (m === 'venceu') {
     // mesma rampa do modo "vencedor + margem", restrita a quem ele venceu:
@@ -275,6 +282,14 @@ function adicionarCamada(id, geojson, promoteId, larguraLinha) {
       'fill-color': expressaoCor(),
       'fill-opacity': expressaoOpacidade(),
     },
+  });
+  // hachura dos municípios sem par 2022↔2026 (só aparece no modo "Swing")
+  map.addLayer({
+    id: `${id}-hachura`,
+    type: 'fill',
+    source: id,
+    filter: ['==', ['get', 'sem_par'], true],
+    paint: { 'fill-pattern': 'hachura', 'fill-opacity': modoEfetivo() === 'swing' ? 1 : 0 },
   });
   map.addLayer({
     id: `${id}-linha`,
@@ -343,8 +358,10 @@ function limparHover() {
 function mostrarTooltip(ponto, p) {
   const venc = p.vencedor > 0 ? candidato(p.vencedor) : null;
   let corpo;
-  if (!venc) {
-    corpo = '<span>sem voto válido</span>';
+  if (modoEfetivo() === 'swing') {
+    corpo = tooltipSwing(p);
+  } else if (!venc) {
+    corpo = p.margem_pp === 0 ? '<span>empate exato: sem vencedor</span>' : '<span>sem voto válido</span>';
   } else if (modoEfetivo() === 'forca') {
     const c = candidato(S.candidato);
     corpo =
@@ -365,17 +382,41 @@ function mostrarTooltip(ponto, p) {
   elTooltip.style.top = `${ponto.y - 12}px`;
 }
 
+const AVISO_IDENTIDADE =
+  'o nº 22 era Jair Bolsonaro em 2022 e é Flávio Bolsonaro em 2026';
+
+function tooltipSwing(p) {
+  if (p.sem_par) {
+    return `<span>sem comparação 2022→2026</span><span>${p.motivo_sem_par || ''}</span>`;
+  }
+  if (p.dm === undefined) return '<span>carregando swing…</span>';
+  const lado = p.dm > 0 ? 'para o PL' : p.dm < 0 ? 'para o PT' : '(sem mudança)';
+  return (
+    `<span>margem PL − PT: <b>${sinalPp(p.dm)}</b> ${lado}</span>` +
+    `<span>PT 2022→2026: ${sinalPp(p.sw_pt)} · PL: ${sinalPp(p.sw_pl)}</span>` +
+    `<span class="tt-aviso">${AVISO_IDENTIDADE}</span>`
+  );
+}
+
+function sinalPp(v, casas) {
+  if (v === null || v === undefined || !isFinite(v)) return '—';
+  const c = casas ?? (Math.abs(v) < 1 && v !== 0 ? 2 : 1);
+  const s = Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: c, maximumFractionDigits: c });
+  return `${v > 0 ? '+' : v < 0 ? '−' : ''}${s} p.p.`;
+}
+
 function aplicarModoNoMapa() {
   for (const id of Object.values(FONTES)) {
     if (map.getLayer(`${id}-fill`)) {
       map.setPaintProperty(`${id}-fill`, 'fill-color', expressaoCor());
       map.setPaintProperty(`${id}-fill`, 'fill-opacity', expressaoOpacidade());
+      map.setPaintProperty(`${id}-hachura`, 'fill-opacity', modoEfetivo() === 'swing' ? 1 : 0);
     }
   }
 }
 
 function visivel(id, mostrar) {
-  for (const sufixo of ['-fill', '-linha', '-realce']) {
+  for (const sufixo of ['-fill', '-hachura', '-linha', '-realce']) {
     if (map.getLayer(id + sufixo)) {
       map.setLayoutProperty(id + sufixo, 'visibility', mostrar ? 'visible' : 'none');
     }
@@ -553,6 +594,101 @@ async function prepararPctDoCandidato() {
   }
 }
 
+/* ------------------------- modo "Swing 2022→2026" ---------------------------
+ * `swing.json` traz, por município e na mesma ordem posicional de
+ * `forca/cand_<nr>.json`, o swing do PT e do PL (p.p. de válidos). Δmargem =
+ * swing PL − swing PT (subtração, não cor). Para UF, `br.json.ufs[].swing`. */
+
+async function garantirSwing() {
+  if (S.swing) return S.swing;
+  ocupado(1, 'Carregando swing 2022→2026…');
+  try {
+    const bruto = await obter('data/resultados/swing.json', true);
+    if (bruto.n !== S.meta.n_municipios_br) throw new Error('swing.json desalinhado do meta.json');
+    S.swing = { bruto, mapas: new Map() };
+  } finally {
+    ocupado(-1);
+  }
+  return S.swing;
+}
+
+function codigosDoEscopo(escopo) {
+  if (escopo === 'br') return Array.from(S.indice.keys()).sort((a, b) => Number(a) - Number(b));
+  return S.ufs.get(escopo).municipios.map((m) => String(m.cd_mun_ibge)).sort((a, b) => Number(a) - Number(b));
+}
+
+async function mapaSwing(escopo) {
+  const sw = await garantirSwing();
+  if (sw.mapas.has(escopo)) return sw.mapas.get(escopo);
+  if (escopo === 'br') await garantirIndice();
+  const base = escopo === 'br' ? 0 : S.meta.forca_offsets[escopo];
+  const mapa = new Map();
+  codigosDoEscopo(escopo).forEach((c, i) => {
+    const pt = sw.bruto.pt[base + i];
+    const pl = sw.bruto.pl[base + i];
+    mapa.set(c, pt === null || pl === null ? null : { pt, pl, dm: pl - pt });
+  });
+  sw.mapas.set(escopo, mapa);
+  return mapa;
+}
+
+function injetarSwing(geojson, chaveId, buscar) {
+  const semPar = S.swing ? S.swing.bruto.sem_par : {};
+  for (const f of geojson.features) {
+    const id = String(f.properties[chaveId]);
+    const v = buscar(id);
+    delete f.properties.sem_par;
+    delete f.properties.motivo_sem_par;
+    if (v) {
+      f.properties.dm = v.dm;
+      f.properties.sw_pt = v.pt;
+      f.properties.sw_pl = v.pl;
+    } else {
+      delete f.properties.dm;
+      delete f.properties.sw_pt;
+      delete f.properties.sw_pl;
+      if (semPar[id]) {
+        f.properties.sem_par = true;
+        f.properties.motivo_sem_par = semPar[id];
+      }
+    }
+  }
+}
+
+async function prepararSwing() {
+  if (S.geoUf) {
+    const porCodigo = new Map(
+      S.br.ufs.map((u) => [String(u.cd_uf_ibge), u.swing ? { pt: u.swing[0], pl: u.swing[1], dm: u.swing[2] } : null])
+    );
+    injetarSwing(S.geoUf, 'cd_uf_ibge', (id) => porCodigo.get(id));
+    recarregarFonte(FONTES.uf, S.geoUf);
+  }
+  if (S.uf) {
+    const mapa = await mapaSwing(S.uf);
+    const geo = S.geoMunUf.get(S.uf);
+    if (geo) {
+      injetarSwing(geo, 'cd_mun_ibge', (id) => mapa.get(id));
+      recarregarFonte(FONTES.munuf, geo);
+    }
+  } else if (S.camadaBr === 'mun' && S.geoMunBr) {
+    const mapa = await mapaSwing('br');
+    injetarSwing(S.geoMunBr, 'cd_mun_ibge', (id) => mapa.get(id));
+    recarregarFonte(FONTES.munbr, S.geoMunBr);
+  }
+}
+
+/** Prepara as properties de que o modo de cor atual precisa. */
+async function prepararDadosDoModo() {
+  if (S.candidato) await prepararPctDoCandidato();
+  else if (S.modo === 'swing') await prepararSwing();
+}
+
+function swingDoMunicipio(ibge) {
+  if (!S.swing) return null;
+  for (const mapa of S.swing.mapas.values()) if (mapa.has(String(ibge))) return mapa.get(String(ibge));
+  return null;
+}
+
 /** % do candidato selecionado no município `ibge`, se já carregado. */
 function pctMunicipio(ibge) {
   const f = S.forca.get(S.candidato);
@@ -595,7 +731,7 @@ async function irParaBrasil(camada) {
   visivel(FONTES.munuf, false);
   marcarSelecionado(null, null);
 
-  await prepararPctDoCandidato();
+  await prepararDadosDoModo();
   // as camadas sobrevivem à navegação: reaplica a expressão de cor do modo
   // atual (a camada de UF, por exemplo, é criada no load, antes de a URL ter
   // sido lida).
@@ -624,7 +760,7 @@ async function irParaUf(sigla) {
   visivel(FONTES.munuf, true);
   marcarSelecionado(null, null);
 
-  await prepararPctDoCandidato();
+  await prepararDadosDoModo();
   aplicarModoNoMapa();
   const alvo = (S.geoUf.features || []).find((f) => String(f.properties.uf) === sigla);
   if (alvo) map.fitBounds(bbox(alvo.geometry), { padding: 30, duration: 600 });
@@ -806,6 +942,15 @@ function pctDeRegiao(reg) {
 function corDeRegiao(reg) {
   const m = modoEfetivo();
   if (m === 'mistura' || m === 'margem') return reg[CAMPO_COR[m]];
+  if (m === 'swing') {
+    // stop pronto mais próximo do Δmargem (nenhuma interpolação aqui)
+    const e = S.meta.escala_swing;
+    const v = reg.cd_mun_ibge ? swingDoMunicipio(reg.cd_mun_ibge) : null;
+    if (!v) return e.cor_sem_par;
+    let melhor = 0;
+    e.valores.forEach((x, i) => { if (Math.abs(x - v.dm) < Math.abs(e.valores[melhor] - v.dm)) melhor = i; });
+    return e.cores[melhor];
+  }
   if (m === 'venceu') {
     return reg.vencedor === S.candidato ? reg.cor_margem : S.meta.cor_nao_venceu;
   }
@@ -872,6 +1017,11 @@ function blocoCandidato(reg, nivel) {
     `<div><dt>${rot}</dt><dd>${valor}${extra ? ` <small>${extra}</small>` : ''}</dd></div>`;
 
   let vencidos = `${num(r.municipios_vencidos)} <small>de ${num(total)}</small>`;
+  // empates exatos não têm vencedor (D-030): ficam fora de todos os candidatos
+  const nEmpates = (S.resumo.empates || []).length;
+  if (nEmpates && nivel === 'br') {
+    vencidos += `<br><small>${num(nEmpates)} empates exatos, sem vencedor</small>`;
+  }
   if (nivel !== 'br' && S.uf) {
     const nUf = (S.meta.ufs.find((u) => u.sigla === S.uf) || {}).n_municipios;
     const nesta = r.municipios_vencidos_por_uf[S.uf] || 0;
@@ -928,6 +1078,34 @@ function blocoCandidato(reg, nivel) {
   );
 }
 
+function blocoSwing(reg, nivel) {
+  const e = S.meta.escala_swing;
+  let v = null;
+  if (nivel === 'br') v = { pt: e.br[0], pl: e.br[1], dm: e.br[2] };
+  else if (nivel === 'uf') {
+    const u = S.br.ufs.find((x) => x.uf === S.uf);
+    if (u && u.swing) v = { pt: u.swing[0], pl: u.swing[1], dm: u.swing[2] };
+  } else v = swingDoMunicipio(reg.cd_mun_ibge);
+  const semPar = nivel === 'mun' && S.swing && S.swing.bruto.sem_par[String(reg.cd_mun_ibge)];
+  const linha = (rot, valor) => `<div><dt>${rot}</dt><dd>${valor}</dd></div>`;
+  return (
+    '<div class="secao cand-bloco">' +
+    '<h3>Swing 1º turno 2022 → 2026</h3>' +
+    (semPar
+      ? `<p class="dica">Sem comparação: ${semPar}.</p>`
+      : v
+        ? '<dl class="metricas">' +
+          linha('Margem PL − PT', sinalPp(v.dm)) +
+          linha('PT (2026 − 2022)', sinalPp(v.pt)) +
+          linha('PL (2026 − 2022)', sinalPp(v.pl)) +
+          '</dl>'
+        : '<p class="dica">Carregando…</p>') +
+    `<p class="dica">p.p. de votos válidos de cada ano${nivel === 'mun' ? '' : ', agregado ponderado'}. ` +
+    `Atenção: ${AVISO_IDENTIDADE}.</p>` +
+    '</div>'
+  );
+}
+
 function pintarPainel(reg, nivel) {
   const tot = reg.totais;
   const st = rotuloTotalizacao(tot);
@@ -949,6 +1127,7 @@ function pintarPainel(reg, nivel) {
     '</div>';
 
   if (S.candidato) html += blocoCandidato(reg, nivel);
+  else if (S.modo === 'swing') html += blocoSwing(reg, nivel);
 
   html += `<div class="secao"><h3>Votos válidos por candidato</h3>${barras(reg)}</div>`;
   html += `<div class="secao"><h3>Comparecimento e votos</h3>${metricas(tot)}</div>`;
@@ -1044,10 +1223,39 @@ function legendaCandidato() {
   );
 }
 
+/** Legenda do swing: cada lado da escala tem o PRÓPRIO limite (p1 e p99 do
+ *  Δmargem municipal, não espelhados), então a barra é desenhada em duas
+ *  metades de mesma largura, cada uma com os stops prontos do seu lado. */
+function legendaSwing() {
+  const e = S.meta.escala_swing;
+  const i0 = e.valores.indexOf(0);
+  const neg = e.cores.slice(0, i0 + 1);
+  const pos = e.cores.slice(i0);
+  const fr = (n) => Array.from({ length: n }, (_, i) => i / (n - 1));
+  return (
+    '<h3>Swing 2022 → 2026: margem PL − PT</h3>' +
+    '<div class="rampa-dupla">' +
+    `<span class="barra" style="background:${gradiente(neg, fr(neg.length))}"></span>` +
+    `<span class="barra" style="background:${gradiente(pos, fr(pos.length))}"></span>` +
+    '</div>' +
+    `<div class="escala ticks"><span>${sinalPp(e.limite_negativo, 2)} ou menos</span>` +
+    `<span>0</span><span>${sinalPp(e.limite_positivo, 1)} ou mais</span></div>` +
+    '<div class="escala"><span>a favor do PT</span><span>a favor do PL</span></div>' +
+    '<div class="sw sw-fora"><i class="hachura-amostra"></i><span>sem par em 2022</span></div>' +
+    '<p class="nota"><b>Branco = sem mudança</b> na margem. Cada lado satura no próprio limite ' +
+    `(percentis ${e.percentis[0]} e ${e.percentis[1]} dos municípios), por isso as metades têm ` +
+    `escalas diferentes. <b>Atenção:</b> ${AVISO_IDENTIDADE}; o swing mede a sigla.</p>`
+  );
+}
+
 function desenharLegenda() {
   const el = $('#legenda');
   if (S.candidato) {
     el.innerHTML = legendaCandidato();
+    return;
+  }
+  if (S.modo === 'swing') {
+    el.innerHTML = legendaSwing();
     return;
   }
   if (S.modo === 'mistura') {
@@ -1327,6 +1535,7 @@ async function aplicarCandidato(nr) {
       for (const f of geo.features) delete f.properties.pct_cand;
       recarregarFonte(id, geo);
     }
+    await prepararDadosDoModo();
   }
   sincronizarControles();
   redesenhar();
@@ -1357,7 +1566,7 @@ async function aplicarUrl() {
 
     const modo = p.get('modo');
     if (modo === 'venceu' || modo === 'forca') S.modoCand = modo;
-    else if (modo === 'mistura' || modo === 'margem') S.modo = modo;
+    else if (modo === 'mistura' || modo === 'margem' || modo === 'swing') S.modo = modo;
 
     if (S.candidato) await garantirResumo();
 
@@ -1390,10 +1599,11 @@ function ligarEventos() {
   );
 
   document.querySelectorAll('[data-modo]').forEach((b) =>
-    b.addEventListener('click', () => {
+    b.addEventListener('click', async () => {
       document.querySelectorAll('[data-modo]').forEach((o) => o.classList.remove('ativo'));
       b.classList.add('ativo');
       S.modo = b.dataset.modo;
+      await prepararDadosDoModo();
       redesenhar();
       escreverUrl(false);
     })
@@ -1475,6 +1685,33 @@ function rodape() {
     ' · malha municipal: IBGE 2024 (geobr), simplificada';
 }
 
+/** Padrão de hachura dos "sem par" do swing. As duas cores (fundo e traço) vêm
+ *  prontas de `meta.escala_swing`; o canvas só desenha as linhas. */
+function adicionarHachura() {
+  const e = S.meta.escala_swing;
+  const n = 8;
+  const c = document.createElement('canvas');
+  c.width = n;
+  c.height = n;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = e.cor_sem_par;
+  ctx.fillRect(0, 0, n, n);
+  ctx.strokeStyle = e.cor_hachura;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, n);
+  ctx.lineTo(n, 0);
+  ctx.moveTo(-n / 2, n / 2);
+  ctx.lineTo(n / 2, -n / 2);
+  ctx.moveTo(n / 2, n + n / 2);
+  ctx.lineTo(n + n / 2, n / 2);
+  ctx.stroke();
+  const img = ctx.getImageData(0, 0, n, n);
+  if (!map.hasImage('hachura')) map.addImage('hachura', { width: n, height: n, data: img.data });
+  document.documentElement.style.setProperty('--hachura-fundo', e.cor_sem_par);
+  document.documentElement.style.setProperty('--hachura-traco', e.cor_hachura);
+}
+
 /** Seletor de candidato: cor + nome + % nacional, na ordem de votação. */
 function montarSeletor() {
   const sel = $('#candidato');
@@ -1498,6 +1735,7 @@ async function iniciar() {
     rodape();
     document.title = `Presidente 2026, 1º turno — mapa de resultados (TSE ${S.meta.snapshot.dg})`;
     montarSeletor();
+    adicionarHachura();
     const geo = await garantirGeoUf();
     adicionarCamada(FONTES.uf, geo, 'cd_uf_ibge', 0.8);
     map.fitBounds(LIMITES_BR, { padding: 24, duration: 0 });

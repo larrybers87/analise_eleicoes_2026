@@ -553,3 +553,149 @@ main {
   #legenda { font-size: 10.5px; padding: 6px 8px; }
   #legenda .rampa .nome { width: 40px; }
 }
+
+/* ------------------------- links do topo (F3 fase B) --------------------- */
+
+.topo-links { display: flex; gap: 4px; flex: 0 0 auto; }
+.topo-links a {
+  padding: 5px 9px;
+  border-radius: var(--raio);
+  color: var(--destaque);
+  text-decoration: none;
+  font-size: 13px;
+}
+.topo-links a:hover { background: var(--fundo-fraco); }
+.topo-links a.atual { background: var(--destaque); color: #fff; }
+
+/* ---------------------- página de análises (D-030) ----------------------- */
+
+body.pg-analises { height: auto; min-height: 100%; display: block; background: var(--fundo-fraco); }
+body.pg-analises #topo { position: sticky; top: 0; }
+body.pg-analises #titulo { flex: 1 1 auto; }
+
+main.analises {
+  display: block;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 18px 18px 40px;
+  counter-reset: achado;
+}
+
+.faixa-status {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  font-size: 13px;
+}
+.faixa-status .selo { margin-top: 0; }
+.faixa-status .nota-status { color: var(--tinta-fraca); font-size: 12px; flex: 1 1 100%; }
+
+.intro { color: var(--tinta-fraca); margin: 14px 2px 6px; }
+
+.achado {
+  background: #fff;
+  border: 1px solid var(--linha);
+  border-radius: 8px;
+  padding: 16px 20px 18px;
+  margin-top: 18px;
+  box-shadow: 0 1px 2px rgba(20, 28, 38, .05);
+}
+.achado > h2 { margin: 0 0 10px; font-size: 19px; line-height: 1.3; }
+.grafico h2 { font-size: 14px; margin: 0 0 4px; }
+.achado > h2::before {
+  counter-increment: achado;
+  content: counter(achado);
+  display: inline-block;
+  min-width: 26px;
+  height: 26px;
+  margin-right: 9px;
+  border-radius: 50%;
+  background: var(--destaque);
+  color: #fff;
+  font-size: 13px;
+  line-height: 26px;
+  text-align: center;
+  vertical-align: 2px;
+}
+.achado p { margin: 0 0 10px; }
+.achado [data-v] { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.grafico { margin: 12px 0 4px; min-height: 120px; overflow-x: auto; }
+.grafico svg { max-width: 100%; height: auto; }
+.grafico figure { margin: 0; }
+.achado .fonte-grafico, .achado .nota { font-size: 12.5px; color: var(--tinta-fraca); }
+.achado .nota { background: var(--fundo-fraco); border-radius: var(--raio); padding: 9px 11px; }
+.achado .nota.rodape { background: none; padding: 9px 0 0; border-top: 1px solid var(--linha); }
+
+.aviso {
+  margin: 4px 0 12px;
+  padding: 10px 12px;
+  border-left: 4px solid #e4bb6a;
+  background: #fdf4e3;
+  color: #6b4f16;
+  border-radius: 0 var(--raio) var(--raio) 0;
+  font-size: 13px;
+}
+
+.ver-mapa {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--destaque);
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 13.5px;
+}
+.ver-mapa:hover { text-decoration: underline; }
+.ver-mapa-grupo { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+
+.detalhes { margin: 8px 0; font-size: 13px; }
+.detalhes summary { cursor: pointer; color: var(--destaque); }
+.detalhes p { margin-top: 6px; color: var(--tinta-fraca); }
+
+.alternador {
+  display: none;
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  overflow: hidden;
+  width: max-content;
+}
+.alternador button {
+  border: 0; background: #fff; padding: 5px 14px; font: inherit; font-size: 13px;
+  color: var(--tinta-fraca); cursor: pointer;
+}
+.alternador button + button { border-left: 1px solid var(--linha); }
+.alternador button.ativo { background: var(--destaque); color: #fff; }
+
+.dispersao-duas { display: flex; gap: 24px; }
+
+.tabela-regioes { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+.tabela-regioes th, .tabela-regioes td { padding: 6px 10px; text-align: right; border-bottom: 1px solid var(--fundo-fraco); }
+.tabela-regioes th:first-child, .tabela-regioes td:first-child { text-align: left; }
+.tabela-regioes thead th { background: var(--fundo-fraco); font-size: 12px; color: var(--tinta-fraca); }
+.tabela-regioes td { font-variant-numeric: tabular-nums; }
+
+.rodape-pagina { margin-top: 22px; font-size: 12px; color: var(--tinta-fraca); }
+.rodape-pagina a { color: var(--destaque); }
+
+@media (max-width: 820px) {
+  main.analises { padding: 12px 10px 30px; }
+  .achado { padding: 13px 13px 15px; }
+  .achado > h2 { font-size: 16.5px; }
+  .alternador { display: flex; }
+  .topo-links a { padding: 4px 7px; font-size: 12px; }
+  body.pg-analises #topo { flex-wrap: nowrap; }
+  body.pg-analises #subtitulo { display: none; }
+}
+
+/* --------------------------- modo swing (D-030) -------------------------- */
+#legenda .rampa-dupla { display: flex; gap: 0; margin-bottom: 2px; }
+#legenda .rampa-dupla .barra { flex: 1 1 50%; height: 12px; border: 1px solid rgba(0, 0, 0, .12); }
+#legenda .rampa-dupla .barra:first-child { border-radius: 2px 0 0 2px; border-right: 0; }
+#legenda .rampa-dupla .barra:last-child { border-radius: 0 2px 2px 0; }
+#legenda .hachura-amostra {
+  background: repeating-linear-gradient(-45deg, var(--hachura-traco) 0 1.5px, var(--hachura-fundo) 1.5px 5px);
+}
+#tooltip .tt-aviso { display: block; margin-top: 3px; font-size: 11px; color: #f0d58a; }
+#tooltip span { display: block; }

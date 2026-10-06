@@ -48,6 +48,8 @@ import topojson as tp
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from eleicao import config, forca  # noqa: E402
+from eleicao.analise import composicao, swing  # noqa: E402
+from eleicao.analise.base import vencedor_municipal  # noqa: E402
 from eleicao.cores import (  # noqa: E402
     COR_OUTROS,
     ESCALA_NEUTRA_FIM_HEX,
@@ -58,6 +60,7 @@ from eleicao.cores import (  # noqa: E402
     agrupar_outros,
     carregar_paleta,
     eh_acromatico,
+    escala_divergente_assimetrica,
     escala_forca,
     escala_forca_neutra,
     mistura_oklab,
@@ -265,23 +268,59 @@ class Cores:
     margem_pp: float | None
 
 
-def calcular_cores(votos: dict[int, int], paleta: dict[int, str]) -> Cores:
+Vencedor = tuple[int | None, float | None]
+"""`(nr_vencedor | None, margem_pp | None)` de uma região, vindo de
+`eleicao.analise.base.vencedor_municipal` — a MESMA função usada nas análises (D-030).
+Empate exato: `(None, 0.0)`. Sem voto válido: `(None, None)`."""
+
+
+def tabela_vencedores(df_cand: pd.DataFrame) -> dict[tuple[str, str], Vencedor]:
+    """`{(uf, cd_mun_tse): (vencedor, margem_pp)}` para cada região de `df_cand`.
+
+    Única fonte de "quem venceu" do export: chama `base.vencedor_municipal` (que já trata
+    empate exato como "sem vencedor") e não reimplementa nada. Funciona para município, UF
+    e Brasil porque os três Parquet têm as colunas `uf`/`cd_mun_tse`.
+    """
+    # UF e Brasil não têm código de município no Parquet (None): vira "" para o groupby
+    entrada = df_cand[["uf", "cd_mun_tse", "nr_candidato", "votos"]].copy()
+    entrada["cd_mun_tse"] = entrada["cd_mun_tse"].fillna("")
+    vw = vencedor_municipal(entrada)
+    saida: dict[tuple[str, str], Vencedor] = {}
+    for uf, cd, nr, validos, margem in zip(
+        vw["uf"],
+        vw["cd_mun_tse"],
+        vw["nr_vencedor"],
+        vw["validos"],
+        vw["margem_pp"],
+        strict=True,
+    ):
+        if validos <= 0:
+            saida[(uf, cd)] = (None, None)
+        elif nr is None or pd.isna(nr):
+            saida[(uf, cd)] = (None, 0.0)
+        else:
+            saida[(uf, cd)] = (int(nr), round(float(margem), 3))
+    return saida
+
+
+def calcular_cores(votos: dict[int, int], paleta: dict[int, str], venc: Vencedor) -> Cores:
     """Cores dos 2 modos + vencedor + margem em p.p. sobre o 2º colocado.
 
-    Usa TODOS os candidatos (não o agrupamento "Outros") — ver docstring de
-    `agrupar_outros` em `src/eleicao/cores.py`.
+    `venc` vem de `tabela_vencedores` (função da análise). A mistura usa TODOS os
+    candidatos (não o agrupamento "Outros"). Empate exato: sem vencedor e `cor_margem`
+    neutra (`NEUTRO_EMPATE_HEX`) — o empate não pode herdar a cor de ninguém.
     """
     total = sum(votos.values())
+    nr, margem = venc
     if total <= 0:
         return Cores(COR_SEM_VOTOS, COR_SEM_VOTOS, None, None)
-    ordenado = sorted(votos.items(), key=lambda it: it[1], reverse=True)
-    votos_1 = ordenado[0][1]
-    votos_2 = ordenado[1][1] if len(ordenado) > 1 else 0
+    if nr is None:
+        return Cores(mistura_oklab(votos, paleta), NEUTRO_EMPATE_HEX, None, 0.0)
     return Cores(
         mistura=mistura_oklab(votos, paleta),
         margem=vencedor_margem(votos, paleta),
-        vencedor=int(ordenado[0][0]),
-        margem_pp=round((votos_1 - votos_2) / total * 100, 3),
+        vencedor=nr,
+        margem_pp=margem,
     )
 
 
@@ -355,6 +394,7 @@ def construir_resumo(
     mun_tot: pd.DataFrame,
     pct_mun: pd.DataFrame,
     votos_mun: dict[Any, dict[int, int]],
+    venc_mun: dict[tuple[str, str], Vencedor],
     votos_ext_agregado: dict[int, int],
     p98: dict[int, float],
     ordem: list[int],
@@ -384,23 +424,26 @@ def construir_resumo(
         uf_por_ibge[str(ibge)] = str(uf)
         nome_por_ibge[str(ibge)] = str(nome)
 
-    # vencedor de cada município (todos os candidatos, sem agrupamento)
+    # vencedor de cada município: `venc_mun`, da função da análise (empate = sem vencedor)
     vencidos: dict[int, list[str]] = {nr: [] for nr in ordem}
+    empates: list[str] = []
     for ibge, chave in chave_por_ibge.items():
-        votos = votos_mun.get(chave, {})
-        if not votos or sum(votos.values()) <= 0:
-            continue
-        nr = max(votos.items(), key=lambda it: it[1])[0]
-        vencidos.setdefault(int(nr), []).append(ibge)
+        nr, margem = venc_mun[chave]
+        if nr is not None:
+            vencidos.setdefault(int(nr), []).append(ibge)
+        elif margem == 0.0:
+            empates.append(ibge)
 
     # vencedor de cada local do exterior (para "venceu em N postos")
     vencidos_ext: dict[int, int] = {nr: 0 for nr in ordem}
     com_voto_ext = 0
-    for (uf, _cd), votos in votos_mun.items():
+    for (uf, cd), votos in votos_mun.items():
         if uf != config.UF_EXTERIOR or sum(votos.values()) <= 0:
             continue
         com_voto_ext += 1
-        vencidos_ext[max(votos.items(), key=lambda it: it[1])[0]] += 1
+        nr, _ = venc_mun[(uf, cd)]
+        if nr is not None:
+            vencidos_ext[nr] += 1
 
     total_ext = sum(votos_ext_agregado.values())
     ordem_ext = sorted(votos_ext_agregado.items(), key=lambda it: it[1], reverse=True)
@@ -453,8 +496,103 @@ def construir_resumo(
     return {
         "formato_top": FORMATO_TOP_MUNICIPIOS,
         "n_municipios_br": int(len(mun_br)),
+        # empates exatos não têm vencedor (não entram em nenhum `municipios_vencidos`)
+        "empates": [[ibge, nome_por_ibge[ibge], uf_por_ibge[ibge]] for ibge in sorted(empates)],
         "candidatos": resumo,
     }
+
+
+SWING_DECIMAIS = 2
+"""Casas dos swings por município em `resultados/swing.json`. Duas, e não uma, porque o
+limite negativo da escala (p1 do Δmargem) fica perto de zero (medido: ~−0,05 p.p.): com uma
+casa, o arredondamento decidiria sozinho a cor dos municípios nessa faixa."""
+
+COR_HACHURA_SEM_PAR = "#9aa4ae"
+"""Traço da hachura dos municípios sem par 2022↔2026 no modo "Swing" (fundo: COR_SEM_VOTOS)."""
+
+
+def _r(valor: float | None, casas: int) -> float | int | None:
+    if valor is None or pd.isna(valor):
+        return None
+    v = round(float(valor), casas)
+    return 0 if v == 0 else v
+
+
+def calcular_swing(mun_tot: pd.DataFrame, ordem_ibge: list[str], paleta: dict[int, str]) -> dict:
+    """Swing 1T 2022 → 1T 2026 para o modo "Swing" do mapa (D-030).
+
+    Só chama funções testadas de `eleicao.analise` (`composicao.swing_pt_pl`,
+    `swing.delta_margem_municipal`/`_agregado`, `swing.limites_escala_delta`) e a escala de
+    `cores.escala_divergente_assimetrica`. Devolve o conteúdo de `resultados/swing.json`, o
+    bloco `escala_swing` do `meta.json` e o swing agregado por UF (para `br.json.ufs[]`).
+    Exterior fora (não tem mapa). Município sem par fica `null`, com o motivo em `sem_par`.
+    """
+    dados = composicao.swing_pt_pl()
+    pt = dados["pt"][dados["pt"]["uf"] != config.UF_EXTERIOR]
+    pl = dados["pl"][dados["pl"]["uf"] != config.UF_EXTERIOR]
+    sem = dados["sem_par"][dados["sem_par"]["uf"] != config.UF_EXTERIOR]
+
+    dm = swing.delta_margem_municipal(pt, pl)
+    lim_neg, lim_pos = swing.limites_escala_delta(dm["delta_margem_pp"])
+    br = swing.delta_margem_agregado(pt, pl).iloc[0]
+    por_uf = swing.delta_margem_agregado(pt, pl, "uf")
+
+    br_tot = mun_tot[~mun_tot["eh_exterior"]]
+    ibge_de = {
+        (u, str(c)): str(i)
+        for u, c, i in zip(br_tot["uf"], br_tot["cd_mun_tse"], br_tot["cd_mun_ibge"], strict=True)
+    }
+    por_ibge = {
+        ibge_de[(u, str(c))]: (a, b)
+        for u, c, a, b in zip(
+            dm["uf"], dm["cd_mun_tse"], dm["swing_pt_pp"], dm["swing_pl_pp"], strict=True
+        )
+    }
+    sem_par = {
+        ibge_de[(u, str(c))]: m
+        for u, c, m in zip(sem["uf"], sem["cd_mun_tse"], sem["motivo"], strict=True)
+    }
+    arr_pt = [_r(por_ibge.get(i, (None, None))[0], SWING_DECIMAIS) for i in ordem_ibge]
+    arr_pl = [_r(por_ibge.get(i, (None, None))[1], SWING_DECIMAIS) for i in ordem_ibge]
+    faltando = {i for i, v in zip(ordem_ibge, arr_pt, strict=True) if v is None}
+    if faltando != set(sem_par):
+        raise SystemExit(
+            f"swing: municípios sem valor {sorted(faltando)} != sem_par {sorted(sem_par)}"
+        )
+
+    escala = escala_divergente_assimetrica(
+        lim_neg, lim_pos, paleta[swing.NR_LULA], paleta[swing.NR_PL_2026]
+    )
+    arquivo = {
+        "n": len(ordem_ibge),
+        "ordem": ORDEM_FORCA,
+        "pt": arr_pt,
+        "pl": arr_pl,
+        "sem_par": sem_par,
+    }
+    meta = {
+        "valores": [round(v, 4) for v, _ in escala],
+        "cores": [c for _, c in escala],
+        "limite_negativo": round(lim_neg, 4),
+        "limite_positivo": round(lim_pos, 4),
+        "percentis": list(swing.PERCENTIS_ESCALA_DELTA),
+        "n_pareados_br": int(len(dm)),
+        "br": [_r(br["swing_pt_pp"], 3), _r(br["swing_pl_pp"], 3), _r(br["delta_margem_pp"], 3)],
+        "formato": ["swing_pt_pp", "swing_pl_pp", "delta_margem_pp"],
+        "cor_sem_par": COR_SEM_VOTOS,
+        "cor_hachura": COR_HACHURA_SEM_PAR,
+    }
+    uf = {
+        u: [_r(a, 3), _r(b, 3), _r(d, 3)]
+        for u, a, b, d in zip(
+            por_uf["uf"],
+            por_uf["swing_pt_pp"],
+            por_uf["swing_pl_pp"],
+            por_uf["delta_margem_pp"],
+            strict=True,
+        )
+    }
+    return {"arquivo": arquivo, "meta": meta, "uf": uf}
 
 
 def lista_candidatos(votos: dict[int, int]) -> list[list[Any]]:
@@ -469,9 +607,9 @@ def lista_candidatos(votos: dict[int, int]) -> list[list[Any]]:
 
 
 def registro(
-    linha_totais: pd.Series, votos: dict[int, int], paleta: dict[int, str]
+    linha_totais: pd.Series, votos: dict[int, int], paleta: dict[int, str], venc: Vencedor
 ) -> dict[str, Any]:
-    cores = calcular_cores(votos, paleta)
+    cores = calcular_cores(votos, paleta, venc)
     return {
         "nome": _nativo(linha_totais.get("nm_mun")),
         "cd_mun_tse": _nativo(linha_totais.get("cd_mun_tse")),
@@ -539,6 +677,11 @@ def exportar_resultados(cfg_mun: dict[str, Any], paleta: dict[int, str]) -> dict
     votos_uf = votos_por_regiao(uf_cand, ["uf"])
     votos_mun = votos_por_regiao(mun_cand, ["uf", "cd_mun_tse"])
 
+    # vencedor de cada região: UMA implementação, a da análise (D-030)
+    venc_mun = tabela_vencedores(mun_cand)
+    venc_uf = {uf: v for (uf, _), v in tabela_vencedores(uf_cand).items()}
+    venc_br = tabela_vencedores(br_cand)[("br", "")]
+
     votos_br = dict(
         zip(br_cand["nr_candidato"].astype(int), br_cand["votos"].astype(int), strict=True)
     )
@@ -560,6 +703,9 @@ def exportar_resultados(cfg_mun: dict[str, Any], paleta: dict[int, str]) -> dict
         str(i): str(u) for i, u in zip(mun_br_tot["cd_mun_ibge"], mun_br_tot["uf"], strict=True)
     }
     offsets = offsets_forca(list(pct_mun.index), uf_por_ibge)
+
+    # --- swing 2022 → 2026 (modo "Swing" do mapa, D-030) --------------------
+    sw_dados = calcular_swing(mun_tot, list(pct_mun.index), paleta)
 
     tamanhos: dict[str, int] = {}
 
@@ -636,6 +782,9 @@ def exportar_resultados(cfg_mun: dict[str, Any], paleta: dict[int, str]) -> dict
         "forca_percentil": forca.PERCENTIL_FORCA,
         "forca_ordem": ORDEM_FORCA,
         "forca_offsets": offsets,
+        # --- modo "Swing 2022→2026" (D-030): escala divergente ASSIMÉTRICA,
+        # centro 0 = neutro; cada lado satura no próprio percentil (p1 / p99).
+        "escala_swing": sw_dados["meta"],
         "n_municipios_br": int(len(pct_mun)),
         "formato_top_municipios": FORMATO_TOP_MUNICIPIOS,
         "formato_municipios_br": FORMATO_MUNICIPIOS_BR,
@@ -651,7 +800,7 @@ def exportar_resultados(cfg_mun: dict[str, Any], paleta: dict[int, str]) -> dict
     tamanhos["meta.json"] = escrever_json(WEB_DATA / "meta.json", meta)
 
     # --- br.json (Brasil + resumo das UFs + resumo do exterior) --------------
-    reg_br = registro(br_tot, votos_br, paleta)
+    reg_br = registro(br_tot, votos_br, paleta, venc_br)
     reg_br["nome"] = "Brasil"
     reg_br["votos_cand"] = votos_posicional(votos_br, ordem_cand)
 
@@ -659,7 +808,7 @@ def exportar_resultados(cfg_mun: dict[str, Any], paleta: dict[int, str]) -> dict
     registros_uf: dict[str, dict[str, Any]] = {}
     for _, linha in uf_tot.iterrows():
         sigla = linha["uf"]
-        reg = registro(linha, votos_uf[sigla], paleta)
+        reg = registro(linha, votos_uf[sigla], paleta, venc_uf[sigla])
         reg["nome"] = cfg_mun["nomes_uf"][sigla]
         reg["uf"] = sigla
         registros_uf[sigla] = reg
@@ -681,6 +830,8 @@ def exportar_resultados(cfg_mun: dict[str, Any], paleta: dict[int, str]) -> dict
                 # "Brasil por UF" com ZERO requisição extra. Votos absolutos
                 # (e não %) para o JS derivar o % exato de `validos`.
                 "votos_cand": votos_posicional(votos_uf[sigla], ordem_cand),
+                # [swing PT, swing PL, Δmargem PL−PT] agregados (ponderados), p.p.
+                "swing": sw_dados["uf"].get(sigla),
             }
         )
 
@@ -718,7 +869,7 @@ def exportar_resultados(cfg_mun: dict[str, Any], paleta: dict[int, str]) -> dict
         municipios = []
         for _, linha in linhas.iterrows():
             votos = votos_mun[(sigla, linha["cd_mun_tse"])]
-            reg = registro(linha, votos, paleta)
+            reg = registro(linha, votos, paleta, venc_mun[(sigla, linha["cd_mun_tse"])])
             municipios.append(reg)
             if reg["cd_mun_ibge"]:
                 indice_br[reg["cd_mun_ibge"]] = [
@@ -745,7 +896,7 @@ def exportar_resultados(cfg_mun: dict[str, Any], paleta: dict[int, str]) -> dict
     locais = []
     for _, linha in ext.iterrows():
         votos = votos_mun[(linha["uf"], linha["cd_mun_tse"])]
-        reg = registro(linha, votos, paleta)
+        reg = registro(linha, votos, paleta, venc_mun[(linha["uf"], linha["cd_mun_tse"])])
         reg.pop("cd_mun_ibge", None)
         # 186 × 12 inteiros (~11KB brutos, arquivo só do modal): permite
         # ordenar/destacar a lista do exterior por QUALQUER candidato,
@@ -758,12 +909,16 @@ def exportar_resultados(cfg_mun: dict[str, Any], paleta: dict[int, str]) -> dict
         {"agregado": reg_ext, "locais": locais},
     )
 
+    tamanhos["resultados/swing.json"] = escrever_json(
+        WEB_DATA / "resultados" / "swing.json", sw_dados["arquivo"]
+    )
+
     # --- força por candidato + resumo do painel ------------------------------
     tam_forca, _ = exportar_forca(pct_mun, p98, paleta)
     tamanhos.update(tam_forca)
 
     resumo = construir_resumo(
-        mun_tot, pct_mun, votos_mun, votos_uf[config.UF_EXTERIOR], p98, ordem_cand
+        mun_tot, pct_mun, votos_mun, venc_mun, votos_uf[config.UF_EXTERIOR], p98, ordem_cand
     )
     tamanhos["resumo_candidatos.json"] = escrever_json(WEB_DATA / "resumo_candidatos.json", resumo)
 
@@ -1052,6 +1207,9 @@ GRUPOS = [
     ("resultados/municipios_br.json", ["resultados/municipios_br.json"]),
     ("resultados/uf/uf_<sigla>.json", ["resultados/uf/"]),
     ("resultados/forca/cand_<nr>.json", ["resultados/forca/"]),
+    ("resultados/swing.json", ["resultados/swing.json"]),
+    ("analises.json", ["analises.json"]),
+    ("analises_dispersao.json", ["analises_dispersao.json"]),
     ("geo/brasil_uf.topojson", ["geo/brasil_uf.topojson"]),
     ("geo/brasil_municipios.topojson", ["geo/brasil_municipios.topojson"]),
     ("geo/municipios/uf_<sigla>.topojson", ["geo/municipios/"]),

@@ -306,6 +306,45 @@ def escala_forca_neutra(n: int = N_STOPS_ESCALA) -> list[str]:
     return rampa_oklab(NEUTRO_EMPATE_OKLAB, ESCALA_NEUTRA_FIM_OKLAB, n)
 
 
+N_STOPS_LADO_DIVERGENTE = 5
+"""Stops de CADA lado da escala divergente (o neutro do centro é compartilhado: 2×5−1 = 9)."""
+
+
+def escala_divergente_assimetrica(
+    limite_negativo: float,
+    limite_positivo: float,
+    cor_negativo: str,
+    cor_positivo: str,
+    n_lado: int = N_STOPS_LADO_DIVERGENTE,
+) -> list[tuple[float, str]]:
+    """Escala divergente com centro em 0 e limites DIFERENTES em cada lado (D-030).
+
+    Devolve `[(valor, hex), ...]` em ordem crescente de valor, com `2*n_lado - 1` stops:
+    - lado negativo: `n_lado` stops de `cor_negativo` (em `limite_negativo`) até
+      `NEUTRO_EMPATE_HEX` (em 0), interpolados linearmente em OKLab, com os valores
+      igualmente espaçados entre `limite_negativo` e 0;
+    - lado positivo: de `NEUTRO_EMPATE_HEX` (em 0) até `cor_positivo` (em `limite_positivo`).
+
+    Valor 0 é EXATAMENTE o neutro ("sem mudança"). Os limites não são espelhados: cada lado
+    satura no seu próprio extremo (ex.: p1 e p99 do dado), porque a distribuição do swing
+    2022→2026 é muito assimétrica. Quem desenha a legenda precisa mostrar os dois limites.
+    """
+    if not limite_negativo < 0 < limite_positivo:
+        raise ValueError("precisa de limite_negativo < 0 < limite_positivo")
+    if n_lado < 2:
+        raise ValueError("cada lado precisa de pelo menos 2 stops")
+    neg = rampa_oklab(_oklab(cor_negativo), NEUTRO_EMPATE_OKLAB, n_lado)
+    pos = rampa_oklab(NEUTRO_EMPATE_OKLAB, _oklab(cor_positivo), n_lado)
+    passos = [i / (n_lado - 1) for i in range(n_lado)]
+    valores_neg = [limite_negativo * (1 - t) for t in passos]  # limite_negativo .. 0
+    valores_pos = [limite_positivo * t for t in passos]  # 0 .. limite_positivo
+    valores_neg[-1] = 0.0
+    valores_pos[0] = 0.0
+    return list(zip(valores_neg, neg, strict=True)) + list(
+        zip(valores_pos[1:], pos[1:], strict=True)
+    )
+
+
 def luminosidade_oklab(cor_hex: str) -> float:
     """`L` de OKLab de uma cor hex (0 = preto, 1 = branco). Usado nos testes de rampa."""
     return _oklab(cor_hex)[0]

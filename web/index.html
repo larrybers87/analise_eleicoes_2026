@@ -19,6 +19,11 @@
     <!-- breadcrumb preenchido por js/app.js -->
   </nav>
 
+  <nav class="topo-links" aria-label="Páginas">
+    <a href="index.html" class="atual" aria-current="page">Mapa</a>
+    <a href="analises.html">Análises</a>
+  </nav>
+
   <div id="busca-caixa">
     <input id="busca" type="search" autocomplete="off" spellcheck="false"
            placeholder="Buscar município…" aria-label="Buscar município por nome">
@@ -44,6 +49,9 @@
       </button>
       <button type="button" data-modo="margem" title="Cor do vencedor, intensidade pela margem">
         <span class="longo">Vencedor + margem</span><span class="curto">Margem</span>
+      </button>
+      <button type="button" data-modo="swing" title="Mudança da margem PL − PT do 1º turno de 2022 para o de 2026">
+        <span class="longo">Swing 2022→2026</span><span class="curto">Swing</span>
       </button>
     </div>
     <div class="grupo grupo-sel">

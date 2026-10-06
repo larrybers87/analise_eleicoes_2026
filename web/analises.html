@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<title>Presidente 2026 — análises do primeiro turno</title>
+<meta name="description" content="Seis leituras do primeiro turno da eleição presidencial de 2026, a partir dos dados oficiais do TSE.">
+<link rel="stylesheet" href="css/estilo.css">
+</head>
+<!--
+  NENHUM número é digitado nesta página (regra do projeto, D-030): cada número é um
+  <span data-v="chave"> preenchido por js/analises.js a partir de data/analises.json, que
+  é gerado por scripts/exportar_analises.py. tests/test_exportar_analises.py falha se
+  aparecer um dígito no texto (fora os anos de referência) ou uma chave inexistente.
+-->
+<body class="pg-analises">
+
+<header id="topo">
+  <div id="titulo">
+    <strong>Presidente 2026</strong><span class="sep">·</span><span id="subtitulo">Análises do primeiro turno</span>
+  </div>
+  <nav class="topo-links" aria-label="Páginas">
+    <a href="index.html">Mapa</a>
+    <a href="analises.html" class="atual" aria-current="page">Análises</a>
+  </nav>
+</header>
+
+<main class="analises">
+
+  <div class="faixa-status">
+    Dados do TSE de <b data-v="snapshot.data">…</b>.
+    <span id="status-totalizacao" class="selo parcial">Resultado provisório</span>
+    <span class="nota-status" id="nota-status">A totalização ainda não é final: os números podem mudar e esta página é regerada quando o TSE atualizar.</span>
+  </div>
+
+  <p class="intro">
+    Seis leituras do primeiro turno de 2026, cada uma com um gráfico e um link para a visão
+    correspondente no mapa. Os agregados do Brasil são ponderados (soma dos votos dividida
+    pela soma dos válidos) e não incluem o exterior. Todos os achados sobre municípios são
+    comparações entre municípios, e não dizem nada sobre o voto de uma pessoa.
+  </p>
+
+  <!-- ===================================================================== -->
+  <section class="achado" id="mapa-engana">
+    <h2>Em área, o mapa quase empata. Em eleitores, não</h2>
+    <p>
+      Flávio Bolsonaro (PL) venceu em <span data-v="s1.pl.n_municipios"></span> municípios
+      (<span data-v="s1.pl.pct_municipios"></span> dos <span data-v="geral.n_municipios"></span>),
+      que somam <span data-v="s1.pl.pct_area"></span> da área do país e
+      <span data-v="s1.pl.pct_eleitorado"></span> do eleitorado. Lula (PT) venceu em
+      <span data-v="s1.pt.n_municipios"></span>, com <span data-v="s1.pt.pct_area"></span> da área
+      e <span data-v="s1.pt.pct_eleitorado"></span> do eleitorado. Houve
+      <span data-v="geral.empates"></span> empates exatos, sem vencedor.
+    </p>
+    <p>
+      A mancha de cor do mapa de vencedores mede território, não votos. Dos votos de Flávio,
+      <span data-v="s1.pl.pct_votos_nos_vencidos"></span> vieram dos municípios que ele venceu;
+      no caso de Lula, <span data-v="s1.pt.pct_votos_nos_vencidos"></span>: boa parte dos votos
+      de Lula está em lugares que o mapa pinta de azul.
+    </p>
+    <figure class="grafico" id="g-s1" aria-label="Municípios vencidos por PT e PL em porcentagem de municípios, área, eleitorado e votos"></figure>
+    <p class="fonte-grafico">Porcentagem do total do Brasil, sem o exterior. Área em projeção de área equivalente.</p>
+    <a class="ver-mapa" href="index.html?camada=mun&amp;modo=margem">Ver no mapa: vencedor de cada município →</a>
+  </section>
+
+  <!-- ===================================================================== -->
+  <section class="achado" id="onde-mudou">
+    <h2>De 2022 para 2026, todas as regiões andaram na direção do PL, mas não no mesmo ritmo</h2>
+    <p>
+      No primeiro turno, o PT foi de <span data-v="s2.br.pt_2022"></span> dos votos válidos em
+      2022 para <span data-v="s2.br.pt_2026"></span> em 2026 (<span data-v="s2.br.pt"></span>), e o
+      PL foi de <span data-v="s2.br.pl_2022"></span> para <span data-v="s2.br.pl_2026"></span>
+      (<span data-v="s2.br.pl"></span>). A margem do PL sobre o PT mudou
+      <span data-v="s2.br.delta_margem"></span>.
+    </p>
+    <p>
+      A queda do PT foi maior no Sul (<span data-v="s2.regiao.S.pt"></span>) e no Centro-Oeste
+      (<span data-v="s2.regiao.CO.pt"></span>) e menor no Norte
+      (<span data-v="s2.regiao.N.pt"></span>). A região explica
+      <span data-v="s2.eta2.pt"></span> das diferenças de swing do PT entre municípios e
+      <span data-v="s2.eta2.pl"></span> das do PL: o efeito regional existe, mas dentro de cada
+      região os municípios variam muito.
+    </p>
+    <figure class="grafico" id="g-s2" aria-label="Swing do PT e do PL por região, em pontos percentuais dos válidos"></figure>
+    <p class="nota">
+      <b>Agregado ou média?</b> Os números acima são agregados (soma dos votos dividida pela
+      soma dos válidos, nos dois anos). A média simples dos municípios dá outro resultado,
+      porque uma cidade pequena pesa o mesmo que uma grande: no Centro-Oeste, a média simples
+      do swing do PT é <span data-v="s2.nota.co_pt_media_simples"></span>, contra
+      <span data-v="s2.nota.co_pt_ponderado"></span> no agregado. A mediana dos municípios é
+      <span data-v="s2.mediana.pt"></span> para o PT e <span data-v="s2.mediana.pl"></span> para
+      o PL. <b>O candidato do PL era Jair Bolsonaro em 2022 e é Flávio Bolsonaro em 2026</b>: o
+      swing mede a sigla, não a mesma pessoa.
+    </p>
+    <a class="ver-mapa" href="index.html?camada=mun&amp;modo=swing">Ver no mapa: swing de cada município →</a>
+  </section>
+
+  <!-- ===================================================================== -->
+  <section class="achado" id="porte">
+    <h2>Nas capitais, empate; o PL lidera nas cidades médias e grandes, o PT nas pequenas</h2>
+    <p>
+      Nas <span data-v="s3.capitais.n"></span> capitais, PT e PL ficaram praticamente empatados:
+      <span data-v="s3.capitais.pt"></span> a <span data-v="s3.capitais.pl"></span>. No interior
+      (<span data-v="s3.interior.n"></span> municípios), o PL teve
+      <span data-v="s3.interior.pl"></span> e o PT, <span data-v="s3.interior.pt"></span>.
+    </p>
+    <p>
+      Por tamanho do eleitorado, o PT lidera nos municípios menores e o PL nas cidades médias e
+      grandes. No grupo das maiores cidades, são só <span data-v="s3.faixa.4.n"></span>
+      municípios, e o PT fica à frente por pouco (<span data-v="s3.faixa.4.pt"></span> a
+      <span data-v="s3.faixa.4.pl"></span>), uma diferença que não é robusta.
+    </p>
+    <figure class="grafico" id="g-s3" aria-label="Votos válidos de PT e PL por faixa de eleitorado do município"></figure>
+    <p class="nota">Os grupos de porte não controlam a região: o Nordeste tem muitos municípios pequenos, por exemplo. Por isso o gráfico não isola um efeito do tamanho da cidade.</p>
+    <a class="ver-mapa" href="index.html?camada=mun&amp;modo=margem">Ver no mapa: vencedor e margem por município →</a>
+  </section>
+
+  <!-- ===================================================================== -->
+  <section class="achado" id="renda">
+    <h2>Quanto mais rico o município, menor tende a ser o voto no PT</h2>
+    <p>
+      Cada ponto é um município: a posição horizontal é o PIB per capita, a vertical é o voto
+      no candidato, o tamanho é o eleitorado e a cor é a região. Quanto maior o PIB per capita
+      do município, menor tende a ser o voto no PT e maior o voto no PL.
+    </p>
+    <div class="aviso">
+      <b>Comparação entre municípios, não entre pessoas.</b> Um município mais rico votar menos
+      no PT não quer dizer que os eleitores mais ricos votem menos no PT: os dados não permitem
+      essa conclusão (falácia ecológica). A renda também anda junto com urbanização e região,
+      que não foram separadas aqui. O PIB é de 2023 e a população, do Censo de 2022.
+    </div>
+    <div class="alternador" role="group" aria-label="Candidato no gráfico">
+      <button type="button" data-cand="pt" class="ativo">PT</button>
+      <button type="button" data-cand="pl">PL</button>
+    </div>
+    <figure class="grafico grafico-dispersao" id="g-s4" aria-label="Dispersão entre PIB per capita e voto no PT e no PL por município"></figure>
+    <details class="detalhes">
+      <summary>Detalhes do método</summary>
+      <p>
+        Correlação de Spearman entre o logaritmo do PIB per capita de 2023 e a porcentagem do
+        PT sobre os votos válidos do município: ρ = <span data-v="s4.rho_pt"></span>
+        (<span data-v="s4.n"></span> municípios; Fernando de Noronha não tem PIB próprio). Não há
+        modelo de regressão nesta página: um modelo com controles existe nas análises do
+        projeto, mas os coeficientes dele não são legíveis como efeito.
+      </p>
+    </details>
+    <a class="ver-mapa" href="index.html?camada=mun&amp;modo=forca&amp;candidato=13">Ver no mapa: força de Lula por município →</a>
+  </section>
+
+  <!-- ===================================================================== -->
+  <section class="achado" id="redutos">
+    <h2>Caiado é forte em Goiás; Zema é pequeno até em Minas</h2>
+    <p>
+      Ronaldo Caiado teve <span data-v="s5.caiado.pct_nacional"></span> dos válidos no país, mas
+      <span data-v="s5.caiado.pct_uf"></span> em Goiás: <span data-v="s5.caiado.razao"></span> a
+      média nacional dele. Em <span data-v="s5.caiado.acima_3x"></span> dos
+      <span data-v="s5.caiado.n_uf"></span> municípios goianos ele passou do triplo da própria
+      média nacional: o reduto de Caiado é o estado inteiro, não um território dentro dele.
+    </p>
+    <p>
+      Romeu Zema teve <span data-v="s5.zema.pct_uf"></span> em Minas Gerais, contra
+      <span data-v="s5.zema.pct_nacional"></span> no país (<span data-v="s5.zema.razao"></span>).
+      É proporcionalmente acima da média dele, e ele passou do triplo da média em
+      <span data-v="s5.zema.acima_3x"></span> dos <span data-v="s5.zema.n_uf"></span> municípios
+      mineiros, mas continua um resultado pequeno no próprio estado.
+    </p>
+    <figure class="grafico" id="g-s5" aria-label="Porcentagem de Caiado e Zema no Brasil e no estado de origem"></figure>
+    <p class="nota rodape">
+      Nota: medindo como o apoio se espalha entre municípios (índice de Gini sobre a
+      porcentagem dos válidos, cada município com o mesmo peso), Caiado tem
+      <span data-v="s5.gini_pct.55"></span>, o dobro de Renan Santos
+      (<span data-v="s5.gini_pct.14"></span>), Lula (<span data-v="s5.gini_pct.13"></span>),
+      Flávio Bolsonaro (<span data-v="s5.gini_pct.22"></span>) e Augusto Cury
+      (<span data-v="s5.gini_pct.70"></span>), cujo apoio é uniforme entre municípios. Esse
+      índice não diz quem votou em quem dentro de cada município.
+    </p>
+    <div class="ver-mapa-grupo">
+      <a class="ver-mapa" href="index.html?uf=go&amp;modo=forca&amp;candidato=55">Ver no mapa: Caiado em Goiás →</a>
+      <a class="ver-mapa" href="index.html?uf=mg&amp;modo=forca&amp;candidato=30">Ver no mapa: Zema em Minas →</a>
+    </div>
+  </section>
+
+  <!-- ===================================================================== -->
+  <section class="achado" id="participacao">
+    <h2>A abstenção ficou estável no país e varia entre as regiões</h2>
+    <p>
+      A abstenção foi de <span data-v="s6.br_2026"></span> do eleitorado em 2026, igual aos
+      <span data-v="s6.br_2022"></span> de 2022 (sem o exterior). Entre as regiões, ela vai do
+      Nordeste, a mais baixa, ao Sudeste, a mais alta:
+    </p>
+    <div class="tabela-rolagem">
+      <table class="tabela-regioes" id="t-s6">
+        <thead>
+          <tr><th>Região</th><th>Abstenção</th><th>Brancos</th><th>Nulos</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="nota">Abstenção sobre o eleitorado; brancos e nulos sobre o comparecimento. Os nulos incluem os técnicos, que são uma fração desprezível. O ranking de municípios por abstenção não aparece aqui porque muda quase por completo conforme o corte de tamanho escolhido.</p>
+    <a class="ver-mapa" href="index.html?modo=mistura">Ver no mapa: comparecimento e abstenção no painel de cada estado →</a>
+  </section>
+
+  <p class="rodape-pagina">
+    Fonte: <a href="https://resultados.tse.jus.br" target="_blank" rel="noopener">TSE — resultados.tse.jus.br</a>
+    (resultados de 2026 e 2022), IBGE (PIB municipal de 2023, Censo de 2022, malha municipal).
+    Os números e as ressalvas de cada achado estão em
+    <a href="https://github.com/larrybers87/analise_eleicoes_2026/blob/main/docs/ANALISES.md" target="_blank" rel="noopener">docs/ANALISES.md</a>.
+  </p>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.17/dist/plot.umd.min.js"></script>
+<script src="js/analises.js"></script>
+</body>
+</html>

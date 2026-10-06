@@ -215,3 +215,87 @@ def test_real_teste_uniformidade_regioes_eta2_pequeno_mas_significativo(dados_sw
     assert r["n"] == 5570  # BR pareado: 5571 - Boa Esperança do Norte
     assert r["kruskal_p"] < 1e-10
     assert 0.0 < r["eta2"] < 0.5
+
+
+# ---------------------------------------------------------------- Δmargem PL−PT (D-030)
+
+
+def _sw(cd, v22, val22, v26, val26):
+    d = pd.DataFrame(
+        {"uf": "sp", "cd_mun_tse": cd, "votos_2022": v22, "validos_2022": val22,
+         "votos_2026": v26, "validos_2026": val26, "regiao": "SE"}
+    )  # fmt: skip
+    d["pct_2022"] = 100 * d.votos_2022 / d.validos_2022
+    d["pct_2026"] = 100 * d.votos_2026 / d.validos_2026
+    d["swing_pp"] = d.pct_2026 - d.pct_2022
+    return d
+
+
+def test_delta_margem_municipal_definicao_e_igual_a_diferenca_de_swings():
+    pt = _sw(["1", "2"], [50, 40], [100, 100], [40, 45], [100, 200])
+    pl = _sw(["1", "2"], [40, 50], [100, 100], [50, 100], [100, 200])
+    d = sw.delta_margem_municipal(pt, pl).set_index("cd_mun_tse")
+    # mun 1: (50-40) - (40-50) = +20 ; mun 2: (50-22.5) - (50-40) = +17.5
+    assert d.loc["1", "delta_margem_pp"] == pytest.approx(20.0)
+    assert d.loc["2", "delta_margem_pp"] == pytest.approx(17.5)
+    assert np.allclose(d.delta_margem_pp, d.swing_pl_pp - d.swing_pt_pp)
+
+
+def test_delta_margem_sem_mudanca_e_zero():
+    pt = _sw(["1"], [50], [100], [500], [1000])
+    pl = _sw(["1"], [30], [100], [300], [1000])
+    assert sw.delta_margem_municipal(pt, pl).delta_margem_pp.iloc[0] == pytest.approx(0.0)
+
+
+def test_delta_margem_exige_mesma_base():
+    pt = _sw(["1", "2"], [50, 40], [100, 100], [40, 45], [100, 200])
+    pl = _sw(["1"], [40], [100], [50], [100])
+    with pytest.raises(ValueError):
+        sw.delta_margem_municipal(pt, pl)
+    with pytest.raises(ValueError):
+        sw.delta_margem_agregado(pt, pl)
+
+
+def test_delta_margem_agregado_e_ponderado_nao_media_simples():
+    # mun grande (1000 válidos) sem mudança; mun pequeno (10 válidos) com +100 p.p.
+    pt = _sw(["1", "2"], [500, 10], [1000, 10], [500, 0], [1000, 10])
+    pl = _sw(["1", "2"], [500, 0], [1000, 10], [500, 10], [1000, 10])
+    ag = sw.delta_margem_agregado(pt, pl).iloc[0]
+    # ponderado: PT 2022 = 510/1010, 2026 = 500/1010 ; PL 2022 = 500/1010, 2026 = 510/1010
+    assert ag["delta_margem_pp"] == pytest.approx(100 * 20 / 1010)
+    media_simples = sw.delta_margem_municipal(pt, pl).delta_margem_pp.mean()
+    assert media_simples == pytest.approx(100.0)
+    por_regiao = sw.delta_margem_agregado(pt, pl, "regiao")
+    assert por_regiao.delta_margem_pp.iloc[0] == pytest.approx(ag["delta_margem_pp"])
+
+
+def test_real_delta_margem_br(dados_swing):
+    t22, t26, c22, c26, par, _ = dados_swing
+    pt = sw.swing_municipal(par, c22, t22, c26, t26, 13, 13)
+    pl = sw.swing_municipal(par, c22, t22, c26, t26, 22, 22)
+    pt, pl = pt[pt.uf != "zz"], pl[pl.uf != "zz"]
+    d = sw.delta_margem_municipal(pt, pl)
+    assert len(d) == 5570 and not d.delta_margem_pp.isna().any()
+    ag = sw.delta_margem_agregado(pt, pl).iloc[0]
+    assert ag["delta_margem_pp"] == pytest.approx(ag["swing_pl_pp"] - ag["swing_pt_pp"])
+    # ANALISES.md: PT −3,3 e PL +3,8 → margem do PL sobre o PT +7,1 p.p.
+    assert round(ag["delta_margem_pp"], 1) == 7.1
+
+
+def test_limites_escala_delta_p1_p99_assimetricos():
+    d = pd.Series(np.r_[np.linspace(-2, -0.1, 30), np.linspace(0.1, 30, 970)])
+    neg, pos = sw.limites_escala_delta(d)
+    assert neg == pytest.approx(np.percentile(d, 1))
+    assert pos == pytest.approx(np.percentile(d, 99))
+    assert neg < 0 < pos and neg != -pos
+
+
+def test_limites_escala_delta_cai_para_o_extremo_quando_p1_nao_e_negativo():
+    d = pd.Series([-0.5] + [5.0] * 999)
+    neg, pos = sw.limites_escala_delta(d)
+    assert neg == -0.5 and pos == 5.0
+
+
+def test_limites_escala_delta_exige_os_dois_lados():
+    with pytest.raises(ValueError):
+        sw.limites_escala_delta(pd.Series([1.0, 2.0, 3.0]))

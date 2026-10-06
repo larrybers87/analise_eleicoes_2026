@@ -1,6 +1,6 @@
 # STATUS
 
-Última atualização: 2026-10-06 — F3 fase A entregue (análises exploratórias 10–17, `docs/ANALISES.md`); crash do numpy/scipy diagnosticado e corrigido (BLAS).
+Última atualização: 2026-10-06 — F3 fase B entregue: página de análises, modo Swing no mapa, empates sem vencedor.
 
 ## Feito
 - **F0 (setup)**: estrutura de pastas, `CLAUDE.md`, docs, `.gitignore`, `environment.yml`, `pyproject.toml`; `.claude/` com agentes `coletor-tse`/`analista-eleitoral` e skills `fechar-sessao`/`tse-dados`; repo no GitHub; ambiente `eleicao2026`.
@@ -16,15 +16,22 @@
   - Decisões D-020 a D-029 em `docs/DECISOES.md` (dependências/BLAS, corte 10k, Albers, swing/sem-par/teto, BH bicaudal, redutos/bolsões, concentração, regiões/capitais, WLS, uniformidade).
 - **Diagnóstico e correção do crash numérico (06/10/2026)**: no env `eleicao2026`, numpy/scipy com MKL 2026.1.0 derrubavam o processo (`Windows fatal exception 0xc06d007f`, exit 127, sem traceback) em `np.cov`, `matmul`, `scipy.stats.spearmanr` e `scipy.stats.f_oneway`. Reproduzido isolado. Conserto: BLAS trocado para OpenBLAS (`conda install -c conda-forge "libblas=*=*openblas" "libcblas=*=*openblas" "liblapack=*=*openblas" numpy scipy`), verificado. Fixado em `environment.yml`. Substitutos em Python puro foram usados por um tempo e removidos depois do conserto. Registrado em `DECISOES.md` D-020 e `DADOS.md` (Armadilhas do ambiente).
 - **Armadilhas corrigidas durante a F3 fase A**: 44 postos do exterior com zero votos válidos (0/0) viraram `sem_par` (não NaN); `bolsoes()` sem resultados perdia o esquema de colunas; agrupamento "Outros" perdia o código do candidato (legenda com números); `scipy` `pearsonr`/`spearmanr` e `f_oneway` ok após o conserto.
+- **F3 fase B — página de análises e modo Swing ENTREGUE (06/10/2026, D-030)**:
+  - `web/analises.html` + `web/js/analises.js` (Observable Plot 0.6.17 + d3 via CDN): 6 seções com link "ver no mapa"; status "provisório" enquanto `tf="n"`. Números só de `web/data/analises.json` (`scripts/exportar_analises.py` → `src/eleicao/analise/site.py`); `tests/test_exportar_analises.py` confere cada número contra o achado do `ANALISES.md` e proíbe dígitos no HTML.
+  - Mapa: modo **"Swing 2022→2026"** (botão no grupo base, `?modo=swing`): Δmargem PL−PT, `cores.escala_divergente_assimetrica` (p1 −0,054 / p99 +27,26 p.p.), `resultados/swing.json`, swing por UF em `br.json`; Boa Esperança do Norte/MT sem par, com hachura e motivo no tooltip. Link "Análises" no topo.
+  - Empates exatos sem vencedor no export do mapa (usa `analise.base.vencedor_municipal`): painel com **Flávio 2.906, Lula 2.663, 2 empates** (antes 2.908 para Flávio). Bissau (exterior) também virou empate.
+  - Novas funções testadas: `swing.delta_margem_municipal`/`_agregado`/`limites_escala_delta`. `docs/ANALISES.md`: definição da Δmargem (+7,1 p.p.) no achado 2 e correção do PT no Sudeste (−2,9, estava −3,0).
+  - Dados novos: +209,5KB brutos / +74,0KB gzip. `verificar_export_web.py`: **540 verificações, 0 falhas**. `pytest -q`: **285 passam**.
+  - Prints: `docs/img/analises_preview_*.png`, `docs/img/mapa_preview_f3b_*.png`.
 - **Ambiente**: `ruff check .` e `ruff format --check .` verdes. Notebooks de análise com ignores só de formato (`pyproject.toml`, `per-file-ignores`); erros reais continuam valendo.
 
 ## Em andamento
 - (nada)
 
 ## Próximo (em ordem)
-1. **Usuário revisar** `docs/ANALISES.md` e decidir quais achados viram seção no site (F3 fase B, pendente no `docs/ROADMAP.md`; `web/` não foi tocado).
+1. **Usuário revisar a página de análises e o modo Swing** (D-030), em especial o lado negativo estreito da escala (p1 = −0,05 p.p.).
 2. **Usuário revisar as decisões** D-020 a D-029 (principalmente D-021 corte de 10 mil, D-024 BH bicaudal, D-025 bolsão = estado para Caiado, D-023 teto/lente) e confirmar o conserto do BLAS nos outros clones (`environment.yml` já tem a fixação).
-3. Acompanhar a totalização: snapshot de 05/10/2026 (`and="p"`, `tf="n"`). Rodar `scripts/verificar_atualizacoes.py` e, se os números mudarem, rodar de novo `notebooks/10`–`17` e atualizar `docs/ANALISES.md`.
+3. Acompanhar a totalização: snapshot de 05/10/2026 (`and="p"`, `tf="n"`). Rodar `scripts/verificar_atualizacoes.py` e, se os números mudarem, rodar `exportar_web.py --sem-geometria`, `exportar_analises.py` e `pytest tests/test_exportar_analises.py` (aponta o que mudou), e atualizar `docs/ANALISES.md`.
 4. F2.1: geocodificação do exterior (186 postos → país/coordenadas).
 5. Monitorar `matematicamente_definido` (`md`) e `tf_judicial` da BR; `situacao` só confiável após `tf="s"`.
 
@@ -39,6 +46,7 @@
 - `.gitignore` bloqueia `data/processed/*secao*` e `*zona*` (F4).
 
 ## Bloqueios / dúvidas abertas
+- **Swing do município-mãe de Boa Esperança do Norte/MT**: o município novo saiu do território de outro(s) entre 2022 e 2026, então o swing do município de origem compara áreas diferentes. Não tratado (D-023 só exclui o município novo).
 - **Malha municipal fora de `data/processed/`**: as análises de área (12) e de vizinhança (16) leem a malha do `geobr` (`carga.geometria_municipios_2024`), não um arquivo processado. É a única entrada externa às análises (documentado em `DADOS.md`). Se o usuário preferir regra estrita (só `data/processed/`), é preciso gerar um Parquet da malha, que fica grande demais para versionar.
 - **Divergência residual de BA (3 municípios)**: o backend do TSE segue servindo a geração antiga (`data/known_issues.csv`). Os totais das análises usam o valor do TSE, sem correção.
 - **Bolsão de Caiado = estado de GO** (237 de 246 municípios): é uma propriedade do limiar de 3×, não um território. Decisão registrada em D-025; o usuário pode preferir outra regra.
