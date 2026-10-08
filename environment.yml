@@ -23,6 +23,7 @@ dependencies:
   - statsmodels # WLS ecológico (15_perfil) com pesos pelo eleitorado
   - libpysal    # pesos queen e Moran (16_espacial)
   - esda        # Moran global e LISA (16_espacial)
+  - cvxpy       # Goodman com restrições (F5a, inferência ecológica); conda-forge, mantém OpenBLAS
   # BLAS OpenBLAS (e não MKL): com MKL 2026.1 no Windows, np.cov/matmul derrubavam o
   # interpretador (exit 0xc06d007f). Ver docs/DECISOES.md D-020.
   - libblas=*=*openblas

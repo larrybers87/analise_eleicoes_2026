@@ -308,15 +308,16 @@ def test_real_capitais_uma_por_uf(reais):
     assert len(cap) == 27 and cap["uf"].nunique() == 27
 
 
-def test_real_votos_brasil_batem_com_bloco_de_known_issue(reais):
-    """Soma dos municípios (com exterior) = total BR do parquet + divergência catalogada da BA."""
+def test_real_votos_brasil_batem_com_total_br(reais):
+    """Soma dos municípios (com exterior) = total BR do parquet.
+
+    Desde a recoleta de 08/10/2026 a divergência histórica da BA convergiu
+    (`data/known_issues.csv` vazio), então a diferença é exatamente zero.
+    """
     _, c, _ = reais
     br = pd.read_parquet(carga.PROC / "presidente_t1_br.parquet").set_index("nr_candidato")["votos"]
     soma = c.groupby("nr_candidato")["votos"].sum()
-    dif = soma - br
-    # Catálogo: BA, municípios 33693/34673/36013, candidatos 13,14,21,22,55,70,80
-    assert dif.loc[22] == -236
-    assert dif.loc[13] == -967
+    assert (soma - br).abs().sum() == 0
 
 
 def test_real_ranking_abstencao_corte_10k_mostra_mg_no_topo(reais):

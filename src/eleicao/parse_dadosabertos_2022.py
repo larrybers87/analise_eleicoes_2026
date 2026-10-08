@@ -1,4 +1,4 @@
-"""Parsers dos CSVs de Resultados 2022 do Portal de Dados Abertos do TSE.
+"""Parsers dos CSVs de Resultados (2018 e 2022; mesmo layout) do Portal de Dados Abertos do TSE.
 
 Fonte: `data/raw/dadosabertos/cdn.tse.jus.br/estatistica/sead/odsele/...`
 (ver docs/DADOS.md). Usamos só os membros `*_BR.csv` de dois pacotes —
@@ -92,3 +92,10 @@ def parse_totais_2022(df_bruto: pd.DataFrame, *, turno: int) -> pd.DataFrame:
     agregado["nm_mun_tse"] = agregado.set_index(["uf", "cd_mun_tse"]).index.map(nomes_municipio)
     colunas = ["uf", "cd_mun_tse", "nm_mun_tse", *campos_soma.values()]
     return agregado[colunas].sort_values(["uf", "cd_mun_tse"]).reset_index(drop=True)
+
+
+# Os layouts de `votacao_candidato_munzona` e `detalhe_votacao_munzona` são
+# idênticos em 2018 e 2022 (conferido por inspeção do cabeçalho); as funções
+# não dependem do ano, então os nomes genéricos abaixo valem para ambos.
+parse_candidatos = parse_candidatos_2022
+parse_totais = parse_totais_2022

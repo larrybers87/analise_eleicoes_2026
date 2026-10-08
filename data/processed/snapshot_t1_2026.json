@@ -1,0 +1,138 @@
+{
+  "eleicao": 6257,
+  "cargo": "Presidente",
+  "turno": 1,
+  "tse": {
+    "idg": "2837531",
+    "dg": "05/10/2026",
+    "hg": "12:51:47",
+    "dt_totalizacao": "05/10/2026",
+    "ht_totalizacao": "12:51:05",
+    "and": "f",
+    "tf": "s",
+    "md": null,
+    "dv": "s"
+  },
+  "coleta_em": "2026-10-08T12:44:57",
+  "totais_br": {
+    "eleitorado": 158745502,
+    "comparecimento": 125275835,
+    "abstencao": 33469244,
+    "validos": 119300788,
+    "brancos": 2300798,
+    "nulos_tvn": 3674249,
+    "secoes_total": 499248,
+    "secoes_nao_instaladas": 41
+  },
+  "candidatos": [
+    {
+      "nr": 22,
+      "nm_urna": "FLAVIO BOLSONARO",
+      "partido": "PL",
+      "votos": 56104503,
+      "pct_validos": 47.027772,
+      "situacao": "2º turno"
+    },
+    {
+      "nr": 13,
+      "nm_urna": "LULA",
+      "partido": "PT",
+      "votos": 53879538,
+      "pct_validos": 45.162768,
+      "situacao": "2º turno"
+    },
+    {
+      "nr": 70,
+      "nm_urna": "ESCRITOR AUGUSTO CURY",
+      "partido": "AVANTE",
+      "votos": 3448569,
+      "pct_validos": 2.890651,
+      "situacao": "Não eleito"
+    },
+    {
+      "nr": 14,
+      "nm_urna": "RENAN SANTOS",
+      "partido": "MISSÃO",
+      "votos": 2675887,
+      "pct_validos": 2.242975,
+      "situacao": "Não eleito"
+    },
+    {
+      "nr": 55,
+      "nm_urna": "RONALDO CAIADO",
+      "partido": "PSD",
+      "votos": 2605148,
+      "pct_validos": 2.18368,
+      "situacao": "Não eleito"
+    },
+    {
+      "nr": 30,
+      "nm_urna": "ZEMA",
+      "partido": "NOVO",
+      "votos": 326488,
+      "pct_validos": 0.273668,
+      "situacao": "Não eleito"
+    },
+    {
+      "nr": 80,
+      "nm_urna": "SAMARA",
+      "partido": "UP",
+      "votos": 122911,
+      "pct_validos": 0.103026,
+      "situacao": "Não eleito"
+    },
+    {
+      "nr": 16,
+      "nm_urna": "HERTZ DIAS",
+      "partido": "PSTU",
+      "votos": 43103,
+      "pct_validos": 0.03613,
+      "situacao": "Não eleito"
+    },
+    {
+      "nr": 27,
+      "nm_urna": "CLARIANA BARAO",
+      "partido": "DC",
+      "votos": 40043,
+      "pct_validos": 0.033565,
+      "situacao": "Não eleito"
+    },
+    {
+      "nr": 21,
+      "nm_urna": "EDMILSON COSTA",
+      "partido": "PCB",
+      "votos": 22693,
+      "pct_validos": 0.019022,
+      "situacao": "Não eleito"
+    },
+    {
+      "nr": 35,
+      "nm_urna": "VETERINÁRIO WILSON GRASSI",
+      "partido": "DEMOCRATA",
+      "votos": 16881,
+      "pct_validos": 0.01415,
+      "situacao": "Não eleito"
+    },
+    {
+      "nr": 29,
+      "nm_urna": "RUI COSTA PIMENTA",
+      "partido": "PCO",
+      "votos": 15024,
+      "pct_validos": 0.012593,
+      "situacao": "Não eleito"
+    }
+  ],
+  "outros_menos_1pct": {
+    "candidatos": [
+      30,
+      80,
+      16,
+      27,
+      21,
+      35,
+      29
+    ],
+    "votos": 587143,
+    "pct_validos": 0.492153
+  }
+}
