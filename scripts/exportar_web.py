@@ -1216,6 +1216,7 @@ GRUPOS = [
     ("resultados/swing.json", ["resultados/swing.json"]),
     ("analises.json", ["analises.json"]),
     ("analises_dispersao.json", ["analises_dispersao.json"]),
+    ("projecao_backtest.json", ["projecao_backtest.json"]),
     ("geo/brasil_uf.topojson", ["geo/brasil_uf.topojson"]),
     ("geo/brasil_municipios.topojson", ["geo/brasil_municipios.topojson"]),
     ("geo/municipios/uf_<sigla>.topojson", ["geo/municipios/"]),

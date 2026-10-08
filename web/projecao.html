@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<title>Presidente 2026 — projeção do 2º turno: método e backtest</title>
+<meta name="description" content="Como funciona a projeção do 2º turno por inferência ecológica e como ela se saiu no teste com as eleições de 2018 e 2022.">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="canonical" href="https://larrybers87.github.io/analise_eleicoes_2026/projecao.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Presidente 2026 · mapa e análises">
+<meta property="og:title" content="Presidente 2026: projeção do 2º turno, método e backtest">
+<meta property="og:description" content="Inferência ecológica a partir dos resultados por município, testada fora da amostra de 2018 para 2022. A projeção de 2026 será publicada junto com o resultado real.">
+<meta property="og:url" content="https://larrybers87.github.io/analise_eleicoes_2026/projecao.html">
+<meta property="og:image" content="https://larrybers87.github.io/analise_eleicoes_2026/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="627">
+<meta property="og:image:alt" content="Mapa do Brasil por município colorido pela mistura dos votos de Flávio Bolsonaro (azul) e Lula (vermelho) no 1º turno de 2026">
+<meta property="og:locale" content="pt_BR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Presidente 2026: projeção do 2º turno, método e backtest">
+<meta name="twitter:description" content="Inferência ecológica a partir dos resultados por município, testada fora da amostra de 2018 para 2022.">
+<meta name="twitter:image" content="https://larrybers87.github.io/analise_eleicoes_2026/img/og.png">
+<meta name="twitter:image:alt" content="Mapa do Brasil por município com o resultado do 1º turno de 2026">
+<link rel="stylesheet" href="css/estilo.css">
+</head>
+<!--
+  NENHUM número é digitado nesta página (mesma regra de analises.html, D-030): cada número
+  é um <span data-v="chave"> ou célula preenchida por js/projecao.js a partir de
+  data/projecao_backtest.json, gerado por scripts/exportar_projecao_web.py.
+  NADA da projeção 2026 entra aqui antes do resultado real do 2º turno (D-036).
+  tests/test_exportar_projecao_web.py falha se aparecer número digitado ou chave inexistente.
+-->
+<body class="pg-analises pg-projecao">
+
+<header id="topo">
+  <div id="titulo">
+    <strong>Presidente 2026</strong><span class="sep">·</span><span id="subtitulo">Projeção do 2º turno</span>
+  </div>
+  <nav class="topo-links" aria-label="Páginas">
+    <a href="index.html">Mapa</a>
+    <a href="analises.html">Análises</a>
+    <a href="projecao.html" class="atual" aria-current="page">2º turno: projeção</a>
+  </nav>
+</header>
+
+<main class="analises">
+
+  <p class="intro">
+    Esta página explica como o projeto projeta o 2º turno a partir do 1º e mostra como o
+    mesmo método se saiu quando foi testado com eleições passadas: estimado com os dados de
+    2018 e aplicado, sem ajustes, ao 1º turno de 2022. A projeção de 2026 em si não está aqui
+    (veja o último bloco).
+  </p>
+
+  <!-- ===================================================================== -->
+  <section class="achado" id="metodo">
+    <h2>Como funciona: inferência ecológica</h2>
+    <p>
+      Não existe dado público de como cada eleitor votou nos dois turnos. O que existe é o
+      resultado de cada município. A inferência ecológica usa essas milhares de comparações:
+      se os municípios onde um candidato teve mais votos no 1º turno são também os que deram
+      mais votos a um dos finalistas no 2º, isso informa para onde, em média, foi o eleitorado
+      daquele candidato.
+    </p>
+    <p>
+      O resultado é uma matriz de transferência: para cada grupo do 1º turno (cada candidato,
+      brancos e nulos, e quem se absteve), a fração que foi para cada lado no 2º turno, votou
+      em branco ou nulo, ou não compareceu. A estimativa é uma regressão de Goodman com
+      restrições: cada fração fica entre zero e um, e as frações de cada grupo somam um.
+      Para os candidatos que não têm equivalente na eleição anterior, a linha da matriz vem da
+      composição do eleitorado deles, isto é, de como os eleitores do 2º turno anterior se
+      distribuíram entre eles.
+    </p>
+    <div class="aviso">
+      <b>Municípios, não pessoas.</b> A matriz descreve associações entre municípios. Ela não
+      diz como votou nenhum eleitor individual e não deve ser lida assim (falácia ecológica).
+    </div>
+    <p class="nota rodape">
+      Método completo, premissas não testáveis e limitações:
+      <a href="https://github.com/larrybers87/analise_eleicoes_2026/blob/main/docs/METODO_PROJECAO.md" target="_blank" rel="noopener">docs/METODO_PROJECAO.md</a>.
+    </p>
+  </section>
+
+  <!-- ===================================================================== -->
+  <section class="achado" id="backtest-mapa">
+    <h2>O teste: estimar em 2018, prever 2022</h2>
+    <p>
+      A matriz foi estimada com o 1º e o 2º turno de 2018 e aplicada ao 1º turno de 2022,
+      como se o 2º turno de 2022 ainda não tivesse acontecido. Depois, a previsão foi comparada
+      com o resultado real: o PL teve <span data-v="real_2022.pct_pl"></span> dos votos
+      válidos no 2º turno de 2022 (Brasil, sem o exterior). No modelo de referência, o erro no
+      Brasil foi de <span data-v="ref.erro_br"></span> e o erro médio por UF, de
+      <span data-v="ref.uf_media_abs"></span> ponto percentual, sem o sinal.
+    </p>
+    <div class="alternador" role="group" aria-label="Modelo no mapa" id="seletor-modelo"></div>
+    <figure class="grafico mapa-erro" id="g-mapa" aria-label="Mapa do Brasil por UF com o erro da previsão do percentual do PL no 2º turno de 2022"></figure>
+    <div class="legenda-erro" id="legenda-erro" aria-hidden="true"></div>
+    <p class="fonte-grafico">
+      Erro = previsto menos real, em pontos percentuais do PL entre os válidos no 2º turno de
+      2022. A escala é a mesma para todos os modelos e satura em
+      ± <span data-v="escala.limite"></span> p.p. As cores não são as dos partidos.
+    </p>
+  </section>
+
+  <!-- ===================================================================== -->
+  <section class="achado" id="backtest-tabela">
+    <h2>O modelo de referência contra as alternativas</h2>
+    <p>
+      Além do modelo de referência, a tabela mostra duas variações dele e dois baselines
+      ingênuos, que não estimam transferência nenhuma. Um bom método precisa ganhar dos
+      baselines; se não ganha, a matriz não acrescenta nada.
+    </p>
+    <div class="tabela-rolagem">
+      <table class="tabela-regioes tabela-backtest" id="t-backtest">
+        <thead>
+          <tr>
+            <th>Modelo</th>
+            <th>Erro no Brasil</th>
+            <th>Erro médio por UF (p.p.)</th>
+            <th>Pior UF</th>
+            <th>Erro médio por município (p.p.)</th>
+            <th>Vencedor certo por UF</th>
+            <th>Erro na abstenção</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="nota">
+      Erros em pontos percentuais, previsto menos real. Erro médio por UF: média do erro sem
+      sinal entre as UFs. Por município: média do erro sem sinal, ponderada pelo eleitorado.
+      Abstenção em porcentagem dos aptos.
+    </p>
+    <div class="aviso">
+      <b>Um teste só.</b> Existe uma única comparação fora da amostra (de 2018 para 2022).
+      E o erro quase nulo da referência no Brasil é em parte compensação de erros: aplicar a
+      composição só ao bloco de Ciro Gomes já leva o erro de <span data-v="ablacao.puro"></span>
+      para <span data-v="ablacao.comp_ciro"></span>, e nos três blocos de terceiros chega a
+      <span data-v="ablacao.comp_3"></span>, enquanto as linhas de brancos, nulos e abstenção
+      continuam erradas. Não é precisão comprovada.
+    </div>
+  </section>
+
+  <!-- ===================================================================== -->
+  <section class="achado" id="mobilizacao">
+    <h2>Por que o modelo por blocos errou: a mobilização mudou entre os turnos</h2>
+    <p>
+      Em 2018, a abstenção subiu <span data-v="mob.2018.delta_abst"></span> entre o 1º e o 2º
+      turno (de <span data-v="mob.2018.abst_t1"></span> para
+      <span data-v="mob.2018.abst_t2"></span> dos aptos). Em 2022, ela andou
+      <span data-v="mob.2022.delta_abst"></span> (de <span data-v="mob.2022.abst_t1"></span>
+      para <span data-v="mob.2022.abst_t2"></span>). Brancos e nulos no 1º turno foram
+      <span data-v="mob.2018.bn_t1"></span> dos aptos em 2018 e
+      <span data-v="mob.2022.bn_t1"></span> em 2022.
+    </p>
+    <p>
+      O modelo por blocos leva para 2022 o comportamento de 2018 desses grupos e erra o PL no
+      Brasil em <span data-v="blocos.erro_br"></span> (previsto menos real). No diagnóstico que
+      troca uma linha da matriz de cada vez pela observada em 2022, o erro sai de
+      <span data-v="ablacao.puro"></span> e vai a <span data-v="ablacao.linha_bn"></span> com a
+      linha de brancos e nulos de 2022, ou a <span data-v="ablacao.linha_abst"></span> com a de
+      abstenção de 2022: cada uma dessas linhas responde por uma parte do erro.
+    </p>
+    <p class="nota">
+      <b>Hipótese, não resultado.</b> Trocar só a linha de abstenção pela de 2022 também reduz o
+      erro na abstenção do modelo por blocos, de <span data-v="ablacao.puro_abst"></span> para
+      <span data-v="ablacao.linha_abst_abst"></span> no Brasil. Esse achado veio de olhar o resultado
+      real de 2022, então não entrou no modelo: fica como hipótese a testar na comparação com
+      o 2º turno de 2026. Brasil sem o exterior; abstenção e brancos e nulos sobre os aptos.
+    </p>
+  </section>
+
+  <!-- ===================================================================== -->
+  <section class="achado" id="projecao-2026">
+    <h2>A projeção de 2026</h2>
+    <p>
+      A projeção do 2º turno de 2026 já foi feita, antes da votação, com o resultado final do
+      1º turno e com o método e o teste descritos acima, sem alterações.
+    </p>
+    <p>
+      Ela será publicada nesta página junto com o resultado real, depois da totalização do
+      2º turno. Assim a comparação entre o que foi projetado e o que aconteceu é honesta: a
+      projeção não pode ser ajustada depois de conhecido o resultado, e esta página não
+      antecipa nenhum número nem vencedor, no Brasil ou nas UFs.
+    </p>
+  </section>
+
+  <p class="rodape-pagina">
+    Fonte: <a href="https://resultados.tse.jus.br" target="_blank" rel="noopener">TSE — resultados.tse.jus.br</a>
+    (resultados de 2018 e 2022). Malha das UFs: IBGE (geobr), simplificada.
+    Método, decisões e números do teste em
+    <a href="https://github.com/larrybers87/analise_eleicoes_2026/blob/main/docs/METODO_PROJECAO.md" target="_blank" rel="noopener">docs/METODO_PROJECAO.md</a>.
+  </p>
+</main>
+
+<footer class="rodape-aviso">
+  <p>
+    <b>Projeto pessoal e não oficial</b>, por Larry Bertoncello. Dados do
+    <a href="https://resultados.tse.jus.br" target="_blank" rel="noopener">TSE</a> e do IBGE. Código e metodologia:
+    <a href="https://github.com/larrybers87/analise_eleicoes_2026" target="_blank" rel="noopener">repositório no GitHub</a>.
+  </p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+<script src="js/projecao.js"></script>
+</body>
+</html>

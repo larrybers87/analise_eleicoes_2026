@@ -292,3 +292,55 @@ def test_divergente_rejeita_limites_invalidos():
         escala_divergente_assimetrica(0.0, 10.0, PALETA[13], PALETA[22])
     with pytest.raises(ValueError):
         escala_divergente_assimetrica(-1.0, 0.0, PALETA[13], PALETA[22])
+
+
+# ---------------------------------------------- escala de erro da projeção (D-036)
+
+from eleicao.cores import (  # noqa: E402
+    COR_ERRO_NEGATIVO,
+    COR_ERRO_POSITIVO,
+    FAIXA_RESERVADA_PT_PL,
+    cor_divergente_simetrica,
+    distancia_oklab,
+    simular_daltonismo,
+)
+
+
+def _fora_da_faixa_reservada(hex_: str) -> bool:
+    h = Color(hex_).convert("oklch")[2]
+    ini, fim = FAIXA_RESERVADA_PT_PL
+    return not (h >= ini or h <= fim)
+
+
+def test_erro_pontas_fora_da_faixa_pt_pl_e_longe_dos_partidos():
+    for cor in (COR_ERRO_NEGATIVO, COR_ERRO_POSITIVO):
+        assert _fora_da_faixa_reservada(cor), cor
+        assert distancia_oklab(cor, PALETA[22]) > 0.15
+        assert distancia_oklab(cor, PALETA[13]) > 0.12
+
+
+@pytest.mark.parametrize("tipo", ["deutan", "protan", "tritan"])
+def test_erro_pontas_distinguiveis_com_daltonismo(tipo):
+    a = simular_daltonismo(COR_ERRO_NEGATIVO, tipo)
+    b = simular_daltonismo(COR_ERRO_POSITIVO, tipo)
+    assert distancia_oklab(a, b) > 0.1
+
+
+def test_divergente_simetrica_centro_pontas_e_saturacao():
+    assert cor_divergente_simetrica(0.0, 3.5, COR_ERRO_NEGATIVO, COR_ERRO_POSITIVO) == (
+        NEUTRO_EMPATE_HEX
+    )
+    assert cor_divergente_simetrica(-3.5, 3.5, COR_ERRO_NEGATIVO, COR_ERRO_POSITIVO) == (
+        COR_ERRO_NEGATIVO
+    )
+    assert cor_divergente_simetrica(9.0, 3.5, COR_ERRO_NEGATIVO, COR_ERRO_POSITIVO) == (
+        COR_ERRO_POSITIVO
+    )
+    with pytest.raises(ValueError):
+        cor_divergente_simetrica(1.0, 0.0, COR_ERRO_NEGATIVO, COR_ERRO_POSITIVO)
+
+
+def test_divergente_simetrica_coincide_com_os_stops_da_legenda():
+    escala = escala_divergente_assimetrica(-3.5, 3.5, COR_ERRO_NEGATIVO, COR_ERRO_POSITIVO)
+    for valor, cor in escala:
+        assert cor_divergente_simetrica(valor, 3.5, COR_ERRO_NEGATIVO, COR_ERRO_POSITIVO) == cor

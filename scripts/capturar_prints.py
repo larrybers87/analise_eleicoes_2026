@@ -106,6 +106,9 @@ PRINTS: list[Print] = [
     Print("analises_preview_celular_topo", "analises.html", CELULAR),
     Print("analises_preview_celular_rodape", "analises.html", CELULAR, acao="pagina_fim"),
     Print("analises_preview_celular_renda", "analises.html", CELULAR, elemento="#renda"),
+    # --- aba "2º turno: projeção" (só método e backtest; D-036)
+    Print("projecao_preview_desktop", "projecao.html", DESKTOP, pagina_inteira=True),
+    Print("projecao_preview_celular_mapa", "projecao.html", CELULAR, elemento="#backtest-mapa"),
 ]
 
 
@@ -141,11 +144,12 @@ def esperar_site(pag: Page, pagina: str) -> None:
         pag.wait_for_timeout(3000)  # MapLibre termina de pintar os tiles vetoriais
     else:
         pag.wait_for_function(
-            "() => !document.querySelector('[data-v=\"snapshot.data\"]').textContent.includes('…')",
+            "() => [...document.querySelectorAll('[data-v]')]"
+            ".every((e) => e.textContent.trim() && !e.textContent.includes('…'))",
             timeout=60000,
         )
         pag.wait_for_load_state("networkidle")
-        pag.wait_for_timeout(1500)  # gráficos do Observable Plot
+        pag.wait_for_timeout(1500)  # gráficos (Observable Plot / d3)
 
 
 def aplicar_acao(pag: Page, acao: str | None) -> None:
@@ -197,6 +201,11 @@ def capturar(prints: list[Print], base: str) -> list[str]:
             aplicar_acao(pag, p.acao)
             destino = SAIDA / f"{p.arquivo}.png"
             if p.elemento:
+                if not p.pagina.startswith("index.html"):
+                    # o topo é sticky nas páginas de texto e cobriria o início do elemento
+                    pag.evaluate(
+                        "() => { document.querySelector('#topo').style.position = 'static'; }"
+                    )
                 pag.locator(p.elemento).screenshot(path=str(destino))
             else:
                 pag.screenshot(path=str(destino), full_page=p.pagina_inteira)

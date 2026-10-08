@@ -1,6 +1,6 @@
 # STATUS
 
-Última atualização: 2026-10-08 - `web/` atualizado para o snapshot final do T1; F5a (projeção do 2º turno) entregue; divergência da BA resolvida.
+Última atualização: 2026-10-08 - aba "2º turno: projeção" (método e backtest, sem números de 2026); `web/` no snapshot final do T1; F5a entregue.
 
 ## Feito
 - **F0 (setup)**: estrutura de pastas, `CLAUDE.md`, docs, `.gitignore`, `environment.yml`, `pyproject.toml`; `.claude/` com agentes `coletor-tse`/`analista-eleitoral` e skills `fechar-sessao`/`tse-dados`; repo no GitHub; ambiente `eleicao2026`.
@@ -32,13 +32,14 @@
   - Saídas: `data/processed/projecao_t2_2026_{municipio,uf,br}.parquet` (+ `sem_par.csv`, `linhas_compostas.csv`), formato longo por `cenario`; metadados do snapshot (`t1_idg`, `t1_and`, `t1_tf`) nas colunas. Resultados: ver a seção 7 do `docs/METODO_PROJECAO.md` (mantida fora do commit público).
   - D-035 (emenda à D-034): viés de abstenção da identidade (cenário `identidade_sem_retorno_abst`), IC bootstrap indicativo (Andrews 2000), exterior com matriz nacional na base (`zz_propria` vira cenário).
   - Documento: `docs/METODO_PROJECAO.md`. Notebook: `notebooks/f5a_projecao_t2.ipynb`. Testes: `tests/test_inferencia_ecologica.py`, `tests/test_projecao_t2.py`.
+- **Aba "2º turno: projeção" (08/10/2026, D-036)**: `web/projecao.html` + `web/js/projecao.js`, link no topo das três páginas. Método em linguagem acessível, mapa por UF do erro do backtest 2018→2022 (seletor: referência, blocos, baselines a/b; escala petróleo↔marrom), tabela modelo × baselines, achado de mobilização entre turnos (calculado dos totais de 2018/2022) e bloco fixo da projeção 2026 SEM números. Dados: `web/data/projecao_backtest.json` (`scripts/exportar_projecao_web.py` → `src/eleicao/backtest_web.py`; lê os CSV de `data/interim/projecao_t2/`, não versionados, e aborta em caminho com "2026"). Testes: `tests/test_exportar_projecao_web.py` (pula sem o interim) e escala em `tests/test_cores.py`. Prints `docs/img/projecao_preview_*.png` (na lista de `scripts/capturar_prints.py`); demais prints regerados com o link novo no topo.
 - **Ambiente**: `ruff check .` e `ruff format --check .` verdes. Notebooks de análise com ignores só de formato (`pyproject.toml`, `per-file-ignores`); erros reais continuam valendo.
 
 ## Em andamento
-- (nada). Aguardando a eleição 6258 (25/10/2026) para rodar `scripts/comparar_projecao_t2.py`.
+- (nada). Aguardando a eleição 6258 (25/10/2026).
 
 ## Próximo (em ordem)
-0. **Pós-25/10**: coletar o T2 2026 (eleição 6258) com o coletor-tse, gerar os parquet `presidente_t2_*` e rodar `scripts/comparar_projecao_t2.py` (projeção contra o resultado e matriz real T1→T2).
+0. **Após 26/10 (totalização do T2)**: coletar o T2 2026 (eleição 6258) com o coletor-tse e gerar os parquet `presidente_t2_*`; merge de `f5a-resultados` em `main`; rodar `scripts/comparar_projecao_t2.py`; preencher o bloco 2026 da aba "2º turno: projeção" com projeção × real (hoje o export recusa qualquer caminho com "2026": a trava precisa ser revista nesse momento); então push.
 1. **Usuário revisar a página de análises e o modo Swing** (D-030, D-031).
 2. **Usuário revisar as decisões** D-020 a D-029 (principalmente D-021 corte de 10 mil, D-024 BH bicaudal, D-025 bolsão = estado para Caiado, D-023 teto/lente) e confirmar o conserto do BLAS nos outros clones (`environment.yml` já tem a fixação).
 3. Acompanhar eventuais retotalizações do T1 (snapshot atual: final, `idg` 2837531, `and="f"`, `tf="s"`). Rodar `scripts/verificar_atualizacoes.py` e, se os números mudarem, rodar `exportar_web.py --sem-geometria`, `exportar_analises.py` e `pytest tests/test_exportar_analises.py` (aponta o que mudou), e atualizar `docs/ANALISES.md`.

@@ -136,7 +136,8 @@ def html() -> _Texto:
 
 
 def test_html_nao_tem_numero_digitado(html):
-    texto = " ".join(html.pedacos)
+    # ordinais de turno ("2º turno", no link do topo) não são dado
+    texto = re.sub(r"(?<!\d)[12]º", "", " ".join(html.pedacos))
     numeros = set(re.findall(r"\d+(?:[.,]\d+)*", texto))
     assert numeros <= ANOS_PERMITIDOS, (
         f"números digitados no HTML: {sorted(numeros - ANOS_PERMITIDOS)}"

@@ -345,6 +345,42 @@ def escala_divergente_assimetrica(
     )
 
 
+COR_ERRO_NEGATIVO_OKLCH = (0.50, 0.09, 195.0)
+COR_ERRO_POSITIVO_OKLCH = (0.52, 0.11, 60.0)
+"""Pontas da escala divergente de ERRO (previsto − real) da página de projeção (D-036).
+
+Petróleo (h=195°) para erro negativo e marrom (h=60°) para positivo, à moda da BrBG
+do ColorBrewer. Ficam fora da faixa de matiz da mistura PT×PL (260°→30°, roxos e
+magentas: `FAIXA_RESERVADA_PT_PL`) e longe do azul do PL e do vermelho do PT, para que
+"erro" não seja lido como "partido". Croma moderado (0,09–0,11) e luminosidade parecida
+nas duas pontas: o sinal se lê pelo matiz e a intensidade, pela distância ao neutro.
+Distinguíveis em deutan, protan e tritan (`tests/test_cores.py`)."""
+
+COR_ERRO_NEGATIVO = (
+    Color("oklch", list(COR_ERRO_NEGATIVO_OKLCH)).convert("srgb").fit("srgb").to_string(hex=True)
+)
+COR_ERRO_POSITIVO = (
+    Color("oklch", list(COR_ERRO_POSITIVO_OKLCH)).convert("srgb").fit("srgb").to_string(hex=True)
+)
+
+
+def cor_divergente_simetrica(
+    valor: float, limite: float, cor_negativo: str, cor_positivo: str
+) -> str:
+    """Cor de `valor` numa escala divergente simétrica `[-limite, +limite]` com centro neutro.
+
+    Interpola LINEARMENTE EM OKLab entre `NEUTRO_EMPATE_OKLAB` (valor 0) e a ponta do
+    lado do sinal (valor ±limite); acima do limite, satura na ponta. Os stops de legenda
+    da mesma escala saem de `escala_divergente_assimetrica(-limite, limite, ...)`, que usa
+    a mesma interpolação, então mapa e legenda coincidem.
+    """
+    if limite <= 0:
+        raise ValueError("limite precisa ser positivo")
+    t = min(abs(valor) / limite, 1.0)
+    fim = _oklab(cor_negativo if valor < 0 else cor_positivo)
+    return _hex_de_oklab(*(n + t * (f - n) for n, f in zip(NEUTRO_EMPATE_OKLAB, fim, strict=True)))
+
+
 def luminosidade_oklab(cor_hex: str) -> float:
     """`L` de OKLab de uma cor hex (0 = preto, 1 = branco). Usado nos testes de rampa."""
     return _oklab(cor_hex)[0]
