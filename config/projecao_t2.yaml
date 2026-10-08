@@ -1,0 +1,293 @@
+# ============================================================================
+# APROVADO pelo usuario em 2026-10-08 (D-033 + D-034), depois de ver o backtest 2018->2022.
+# Este arquivo guarda SO mapeamento e linhas de cenario. Nenhum percentual de votacao,
+# nenhuma contagem e nenhum eleitorado: numeros vem sempre dos parquet.
+# ============================================================================
+#
+# Categorias sobre ELEITORES APTOS. T1: candidatos acima do corte + "outros" + BN + ABST.
+# T2: finalista A (PL), finalista B (PT), BN, ABST. A matriz tem colunas por LADO
+# partidario (PL, PT, BN, ABST), nao por pessoa; o nr 22 era Jair em 2022 e e Flavio em
+# 2026 (D-023 item 2) e o mapeamento 22 -> 22 assume fidelidade ao campo, nao a pessoa.
+#
+# tipos de mapeamento:
+#   analogo               linha estimada (Goodman) da categoria de calibracao indicada
+#   regressao_composicao  linha derivada da composicao 2022-T2 do eleitorado da categoria
+#                         (regressao ecologica 2022-T2 -> 2026-T1 sobre analise.swing.parear);
+#                         cada componente vai para o mesmo destino no T2 2026
+#                         (Lula22->PT, Bolsonaro22->PL, BN22->BN, Abst22->ABST).
+#                         `fallback` so e usado se o chamador pedir (D-034: sem fallback automatico).
+#   manual                linha fixa {PL, PT, BN, ABST}, soma 1
+#   dividido              categoria separada em partes, cada uma com seu mapeamento
+
+meta:
+  status: APROVADO
+  data_aprovacao: 2026-10-08
+  eleicao_t1: 6257
+  eleicao_t2: 6258
+  data_t2: 2026-10-25
+  finalistas:
+    A: {nr: 22, lado: PL}
+    B: {nr: 13, lado: PT}
+  corte_relevante_pct_validos: 1.0   # decisao do usuario; aplicado em 2026, 2022 e 2018
+  denominador: eleitorado_apto
+  calibracao: {t1: 2022_t1, t2: 2022_t2}
+  zz: recorte_a_parte   # D-027; total com ZZ nunca rotulado "Brasil"
+  matriz_zz_base: nacional          # D-035: nacional e a base; a propria do ZZ 2022 e o cenario zz_propria
+  matriz_brasil: nacional           # sem B por UF na projecao (D-034)
+
+# ---------------------------------------------------------------------------
+# 1) Categorias do T1 2026
+# ---------------------------------------------------------------------------
+categorias_2026_t1:
+
+  - id: flavio
+    nr: 22
+    mapeamento: {tipo: analogo, t1_2022: bolsonaro_22}
+    confianca: alta
+    justificativa: Mesmo numero/sigla e campo; finalista, linha proxima de fidelidade. Flavio nao e Jair.
+
+  - id: lula
+    nr: 13
+    mapeamento: {tipo: analogo, t1_2022: lula_13}
+    confianca: alta
+    justificativa: Mesma pessoa e partido; finalista. Desafiante em 2022, incumbente em 2026 (contexto diferente).
+
+  - id: cury
+    nr: 70
+    mapeamento:
+      tipo: regressao_composicao
+      fallback: {tipo: analogo, t1_2022: ciro_12}
+    confianca: baixa
+    justificativa: Base = composicao 2022-T2 do eleitorado dele; sem analogo direto em 2022. Analogo (Ciro 2022, voto de protesto de baixa fidelidade) so como cenario (D-034, sem fallback automatico).
+
+  - id: renan
+    nr: 14
+    mapeamento:
+      tipo: regressao_composicao
+      fallback: {tipo: analogo, t1_2022: ciro_12}
+    confianca: baixa
+    justificativa: Idem Cury.
+
+  - id: caiado
+    nr: 55
+    mapeamento:
+      tipo: regressao_composicao
+      fallback: {tipo: analogo, t1_2022: tebet_15}
+    confianca: baixa
+    justificativa: Base = composicao 2022-T2. Analogo (cenario) = Tebet 2022 (centro). Ressalva - Tebet apoiou Lula no T2 e Caiado esta mais a direita.
+
+  - id: outros_2026
+    nr: [30, 80, 16, 27, 21, 35, 29]   # Zema, Samara, Hertz Dias, Clariana Barao, Edmilson Costa, W. Grassi, Rui C. Pimenta
+    mapeamento:
+      tipo: regressao_composicao
+      fallback: {tipo: analogo, t1_2022: outros_2022}
+    confianca: media
+    justificativa: D-034 - composicao tambem em outros, para o modelo de referencia ser o mesmo que foi backtestado (regter_nac aplicou composicao ao bloco outros). Goodman outros_2022 vira o cenario outros_goodman. Zema nao e separado.
+
+  - id: bn_2026
+    mapeamento: {tipo: analogo, t1_2022: bn_2022}
+    confianca: alta
+    justificativa: Categoria identica.
+
+  - id: abst_2026
+    mapeamento: {tipo: analogo, t1_2022: abst_2022}
+    confianca: media
+    justificativa: Categoria identica, mas a abstencao do T2 2026 depende de contexto proprio; a matriz mede a mobilizacao de 2022.
+
+# ---------------------------------------------------------------------------
+# 2) Categorias de calibracao 2022 (T1 2022 -> T2 2022)
+# ---------------------------------------------------------------------------
+categorias_2022_t1:
+  lula_13: {nr: [13]}
+  bolsonaro_22: {nr: [22]}
+  tebet_15: {nr: [15]}
+  ciro_12: {nr: [12]}
+  outros_2022: {nr: [44, 30, 14, 80, 21, 16, 27]}   # Soraya, d'Avila, Kelmon, Leo, Sofia, Vera, Eymael
+  bn_2022: {campos: [brancos, nulos_tvn]}
+  abst_2022: {campos: [abstencao]}
+
+# Composicao 2022-T2 usada em regressao_composicao (ordem fixa no codigo)
+grupos_2022_t2: [lula, bolsonaro, bn, abst]
+
+# ---------------------------------------------------------------------------
+# 3) Cenarios (sobrescrevem so o que listam; o resto = base)
+# ---------------------------------------------------------------------------
+cenarios:
+  # Eixo A (terceiros: Cury, Renan, Caiado, outros) x Eixo B (linhas de BN e ABST).
+  # Base = regressao de composicao x mobilizacao tipo 2022. As 4 combinacoes sao
+  # base, desmob_2018, analogos e analogos_desmob_2018.
+  base:
+    descricao: Terceiros (Cury, Renan, Caiado, outros) por regressao de composicao 2022-T2 -> 2026-T1; linhas de BN e ABST da B nacional 2022 (mobilizacao tipo 2022).
+    eixo_terceiros: regressao
+    eixo_abst_bn: mobilizacao_2022
+
+  desmob_2018:
+    descricao: Terceiros por regressao; linhas de BN e ABST da B nacional 2018 (desmobilizacao tipo 2018).
+    eixo_terceiros: regressao
+    eixo_abst_bn: desmobilizacao_2018
+    sobrescreve:
+      bn_2026: {tipo: analogo, fonte: b_2018, categoria: bn}
+      abst_2026: {tipo: analogo, fonte: b_2018, categoria: abst}
+
+  analogos:
+    descricao: Terceiros por analogo lado a lado (Caiado -> Tebet 2022; Renan e Cury -> Ciro 2022; outros -> outros_2022); BN e ABST tipo 2022.
+    eixo_terceiros: analogos
+    eixo_abst_bn: mobilizacao_2022
+    sobrescreve:
+      caiado: {tipo: analogo, t1_2022: tebet_15}
+      renan: {tipo: analogo, t1_2022: ciro_12}
+      cury: {tipo: analogo, t1_2022: ciro_12}
+      outros_2026: {tipo: analogo, t1_2022: outros_2022}
+
+  analogos_desmob_2018:
+    descricao: Terceiros por analogo e BN/ABST tipo 2018.
+    eixo_terceiros: analogos
+    eixo_abst_bn: desmobilizacao_2018
+    sobrescreve:
+      caiado: {tipo: analogo, t1_2022: tebet_15}
+      renan: {tipo: analogo, t1_2022: ciro_12}
+      cury: {tipo: analogo, t1_2022: ciro_12}
+      outros_2026: {tipo: analogo, t1_2022: outros_2022}
+      bn_2026: {tipo: analogo, fonte: b_2018, categoria: bn}
+      abst_2026: {tipo: analogo, fonte: b_2018, categoria: abst}
+
+  # Sensibilidade adicional (todas sobre a base)
+  outros_goodman:
+    descricao: Somente outros_2026 pelo Goodman de outros_2022 (em vez da composicao).
+    sobrescreve:
+      outros_2026: {tipo: analogo, t1_2022: outros_2022}
+
+  manual_original:
+    descricao: Linhas manuais do primeiro rascunho (Renan e Caiado). Placeholders do analista.
+    sobrescreve:
+      renan: {tipo: manual, linha: {PL: 0.60, PT: 0.05, BN: 0.15, ABST: 0.20}}
+      caiado: {tipo: manual, linha: {PL: 0.55, PT: 0.15, BN: 0.10, ABST: 0.20}}
+
+  outros_divididos:
+    descricao: Outros separados em direita (Zema, Clariana, Grassi) e esquerda radical (Samara, Hertz, Edmilson, Rui). Direita usa outros_2022; esquerda linha manual pro-PT (ideologica, nao estimada).
+    sobrescreve:
+      outros_2026:
+        tipo: dividido
+        partes:
+          - {nr: [30, 27, 35], mapeamento: {tipo: analogo, t1_2022: outros_2022}}
+          - {nr: [80, 16, 21, 29], mapeamento: {tipo: manual, linha: {PL: 0.03, PT: 0.55, BN: 0.17, ABST: 0.25}}}
+
+  limite_pro_pl:
+    descricao: Limite pro PL para Renan, Caiado e Cury.
+    sobrescreve:
+      renan: {tipo: manual, linha: {PL: 0.75, PT: 0.03, BN: 0.07, ABST: 0.15}}
+      caiado: {tipo: manual, linha: {PL: 0.75, PT: 0.03, BN: 0.07, ABST: 0.15}}
+      cury: {tipo: manual, linha: {PL: 0.75, PT: 0.03, BN: 0.07, ABST: 0.15}}
+
+  limite_pro_pt:
+    descricao: Limite pro PT para Renan, Caiado e Cury.
+    sobrescreve:
+      renan: {tipo: manual, linha: {PL: 0.15, PT: 0.40, BN: 0.15, ABST: 0.30}}
+      caiado: {tipo: manual, linha: {PL: 0.15, PT: 0.40, BN: 0.15, ABST: 0.30}}
+      cury: {tipo: manual, linha: {PL: 0.15, PT: 0.40, BN: 0.15, ABST: 0.30}}
+
+  identidade_sem_retorno_abst:
+    descricao: Base, mas nas linhas compostas (Cury, Renan, Caiado, outros) o componente ABST22 e zerado, PL/PT/BN renormalizados, e a linha vira (1-r)*linha + r em ABST. r = taxa de abstencao T1->T2 dos votantes, media ponderada pelos votos do T1 2022 (Brasil sem ZZ) da coluna ABST da B in-sample 2022 nas linhas lula, bolsonaro, tebet, ciro e outros (BN fora, ver METODO). Corrige o vies de abstencao da identidade (D-035).
+    identidade: sem_retorno_abst
+
+  zz_propria:
+    descricao: Cenario base, mas o exterior (ZZ) usa a matriz propria estimada em 2022 (D-035), em vez da nacional.
+    zz_usa: propria
+
+# Eixo B - qual e a base e por que (D-034). Base = mobilizacao tipo 2022.
+eixo_abst_bn:
+  base: mobilizacao_2022
+  motivos:
+    - eleicao mais recente, mesmo par PL x PT
+    - BN de 2026 proximo do de 2022 e distante do de 2018 (conferir nos parquet)
+    - a abstencao subiu entre os turnos de 2018 e caiu entre os de 2022; foi a principal fonte do erro do backtest
+  alternativa: desmobilizacao_2018
+
+# ---------------------------------------------------------------------------
+# 4) Criterios PROPOSTOS (nao aplicados; o usuario ve antes)
+# ---------------------------------------------------------------------------
+criterios:
+  ic_largo:
+    status: DIAGNOSTICO_APENAS   # D-034: nao decide nada; nao ha fallback automatico
+    metrica: largura do IC95% (bootstrap estratificado por UF) de PL - PT na linha, em p.p.
+    limite_pp: 20
+  matriz_propria_zz:
+    status: CENARIO_ZZ_PROPRIA   # D-035: a matriz nacional e a base do exterior; a propria e cenario
+  lambda_shrinkage_uf:
+    status: NAO_USADO_NA_PROJECAO   # D-034: sem B por UF; so no backtest
+
+# Faixa heuristica (D-034): simetrica, sem correcao de vies, derivada do erro de UM backtest.
+# Rotulo SEMPRE "faixa heuristica (n=1)", nunca IC. O bootstrap e so "variancia de estimacao".
+faixa_heuristica:
+  rotulo: faixa heuristica (n=1)
+  pct_pl_validos_br_pp: 2.0
+  pct_pl_validos_uf_pp: 2.5
+  abstencao_aptos_pp: 1.5
+  municipio_e_zz_pp: 2.5   # nao calibrada para esses niveis; usa o valor de UF
+indistinguivel:
+  centro_pct_pl_validos: 50.0
+  regra: se |%PL - 50| <= faixa do nivel, o metodo nao distingue vencedor (BR com 2.0; UF com 2.5)
+
+# ---------------------------------------------------------------------------
+# 5) Backtest 2018 -> 2022
+#    Matriz estimada em 2018 T1 -> T2 e aplicada ao T1 2022 reclassificado nos blocos de
+#    2018; compara-se o T2 2022 previsto com o observado. Sem limite binario de aprovacao:
+#    o erro do backtest e a faixa de incerteza principal da projecao 2026.
+#    nrs e nomes de 2018 conferidos em data/processed/presidente_2018_t1_municipio.parquet.
+#    Os blocos do usuario prevalecem sobre o corte de 1% (Marina fica abaixo do corte e vai
+#    para o centro; Daciolo e Meirelles passam do corte e ficam em outros e centro).
+# ---------------------------------------------------------------------------
+backtest_2018_2022:
+  blocos:
+    pl:
+      c2018: {nr: [17], nomes: [Jair Bolsonaro (PSL)]}
+      c2022: [bolsonaro_22]
+      confianca: alta
+      justificativa: Mesma pessoa, mesmo campo.
+    pt:
+      c2018: {nr: [13], nomes: [Fernando Haddad (PT)]}
+      c2022: [lula_13]
+      confianca: alta
+      justificativa: Candidato do PT nos dois pleitos.
+    ciro:
+      c2018: {nr: [12], nomes: [Ciro Gomes (PDT)]}
+      c2022: [ciro_12]
+      confianca: alta
+      justificativa: Mesma pessoa e partido; contexto de apoio no T2 diferente entre os anos.
+    centro:
+      c2018: {nr: [45, 15, 19, 18], nomes: [Geraldo Alckmin (PSDB), Henrique Meirelles (MDB), Alvaro Dias (PODE), Marina Silva (REDE)]}
+      c2022: [tebet_15]
+      confianca: media
+      justificativa: Bloco centro; Marina e Meirelles ficam aqui (decisao do usuario).
+    outros:
+      c2018: {nr: [30, 51, 50, 54, 16, 27], nomes: [Joao Amoedo (NOVO), Cabo Daciolo (PATRI), Guilherme Boulos (PSOL), Joao Goulart Filho (PPL), Vera (PSTU), Eymael (DC)]}
+      c2022: [outros_2022]
+      confianca: media
+      justificativa: Amoedo e Daciolo ficam aqui (decisao do usuario); bloco heterogeneo.
+    bn: {c2018: [brancos, nulos], c2022: [bn_2022], confianca: alta}
+    abst: {c2018: [abstencao], c2022: [abst_2022], confianca: alta}
+  variantes:
+    amoedo_separado:
+      descricao: Amoedo (nr 30, NOVO) como bloco proprio em 2018 e Felipe d'Avila (nr 30, NOVO) como bloco proprio em 2022; os dois saem de outros.
+    regressao_terceiros:
+      descricao: Linhas de centro, ciro e outros (2022) por regressao ecologica de composicao 2018-T2 -> 2022-T1 (identidade Bolsonaro18->PL, Haddad18->PT, BN->BN, ABST->ABST); pl, pt, bn e abst seguem a B estimada em 2018. E o analogo exato do cenario base de 2026.
+  baselines:
+    a_t1_renormalizado: votos dos finalistas no T1 mantidos; sem redistribuir terceiros
+    b_proporcional: terceiros e BN divididos na proporcao dos finalistas por municipio; abstencao constante
+  metricas:
+    - erro BR em p.p. de validos (PL/(PL+PT))
+    - distribuicao do erro por UF
+    - MAE municipal ponderado por aptos
+    - acerto de vencedor por UF
+    - erro de abstencao BR em p.p. dos aptos
+  anotacoes_dados_2018:
+    - Salvador T1 2018 (cd 38490) nao fecha por 746 votos; BN = comparecimento - validos (D-033).
+    - 33 postos de ZZ com comparecimento zero.
+
+# ---------------------------------------------------------------------------
+# 6) Relato dos resultados (rotulos distintos)
+# ---------------------------------------------------------------------------
+relato:
+  brasil_sem_zz: soma dos 5.571 municipios do Brasil (rotulo "Brasil")
+  zz_exterior: soma do exterior (rotulo "Exterior")
+  total_oficial_com_zz: soma das duas (rotulo "Total oficial (com exterior)"; nunca "Brasil")
