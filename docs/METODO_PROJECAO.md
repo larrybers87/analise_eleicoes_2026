@@ -84,3 +84,108 @@ Ablação (diagnóstico, usa o T2 2022 como oráculo): a B de 2018 pura erra −
 ## 6. Como atualizar após o 2º turno
 
 `scripts/comparar_projecao_t2.py` (pronto, não executado) compara a projeção com o resultado real da eleição 6258 e estima a matriz real do 2026 T1→T2. Consome `data/processed/presidente_t2_municipio.parquet` e `presidente_t2_municipio_totais.parquet`, que o coletor-tse deve gerar (mesmo schema do T1 2026). Não baixa nada.
+
+## 7. Resultados da projeção 2026
+
+T1 2026 usado: `idg` 2837531, `and=f`, `tf=s` (05/10/2026 12:51:47). Percentuais sobre votos válidos (PL + PT); abstenção em % dos aptos. Faixa heurística (n=1): ±2,0 p.p. no % PL (Brasil e total oficial), ±2,5 p.p. (exterior e UF), ±1,5 p.p. na abstenção. "dp boot." = desvio-padrão do bootstrap estratificado por UF (variância de estimação, não erro de previsão).
+
+**O método não distingue vencedor no Brasil (sem exterior):** no cenário base o % PL projetado é 51,9%, dentro de 50 ± 2 p.p. O mesmo vale para as 4 combinações de cenário, para o cenário `identidade_sem_retorno_abst` e para o total oficial.
+
+### 7.1 Cenários × recortes
+
+| Cenário | Recorte | % PL | % PT | Faixa PL (±) | Abstenção (% aptos, ±1,5) | dp boot. | Veredito |
+|---|---|---|---|---|---|---|---|
+| base | Brasil (sem exterior) | 51,91 | 48,09 | 2,0 | 21,34 | 0,23 | indistinguivel |
+| base | Exterior (ZZ) | 51,31 | 48,69 | 2,5 | 61,25 | 0,92 | indistinguivel |
+| base | Total oficial (com exterior) | 51,91 | 48,09 | 2,0 | 21,57 | 0,23 | indistinguivel |
+| desmob_2018 | Brasil (sem exterior) | 50,81 | 49,19 | 2,0 | 22,10 | 0,19 | indistinguivel |
+| desmob_2018 | Exterior (ZZ) | 47,75 | 52,25 | 2,5 | 63,55 | 0,24 | indistinguivel |
+| desmob_2018 | Total oficial (com exterior) | 50,80 | 49,20 | 2,0 | 22,34 | 0,19 | indistinguivel |
+| analogos | Brasil (sem exterior) | 51,13 | 48,87 | 2,0 | 20,46 | 0,16 | indistinguivel |
+| analogos | Exterior (ZZ) | 51,43 | 48,57 | 2,5 | 60,60 | 0,81 | indistinguivel |
+| analogos | Total oficial (com exterior) | 51,13 | 48,87 | 2,0 | 20,70 | 0,16 | indistinguivel |
+| analogos_desmob_2018 | Brasil (sem exterior) | 50,04 | 49,96 | 2,0 | 21,23 | 0,25 | indistinguivel |
+| analogos_desmob_2018 | Exterior (ZZ) | 47,93 | 52,07 | 2,5 | 62,91 | 0,25 | indistinguivel |
+| analogos_desmob_2018 | Total oficial (com exterior) | 50,03 | 49,97 | 2,0 | 21,47 | 0,25 | indistinguivel |
+| identidade_sem_retorno_abst | Brasil (sem exterior) | 51,98 | 48,02 | 2,0 | 20,50 | 0,24 | indistinguivel |
+| identidade_sem_retorno_abst | Exterior (ZZ) | 50,92 | 49,08 | 2,5 | 60,62 | 0,89 | indistinguivel |
+| identidade_sem_retorno_abst | Total oficial (com exterior) | 51,98 | 48,02 | 2,0 | 20,73 | 0,24 | indistinguivel |
+| zz_propria | Brasil (sem exterior) | 51,91 | 48,09 | 2,0 | 21,34 | 0,23 | indistinguivel |
+| zz_propria | Exterior (ZZ) | 51,57 | 48,43 | 2,5 | 61,45 | 1,26 | indistinguivel |
+| zz_propria | Total oficial (com exterior) | 51,91 | 48,09 | 2,0 | 21,57 | 0,23 | indistinguivel |
+| outros_goodman | Brasil (sem exterior) | 52,25 | 47,75 | 2,0 | 21,13 | 0,22 | PL |
+| outros_goodman | Exterior (ZZ) | 52,65 | 47,35 | 2,5 | 60,85 | 0,89 | PL |
+| outros_goodman | Total oficial (com exterior) | 52,25 | 47,75 | 2,0 | 21,36 | 0,22 | PL |
+| manual_original | Brasil (sem exterior) | 52,24 | 47,76 | 2,0 | 21,39 | 0,19 | PL |
+| manual_original | Exterior (ZZ) | 51,72 | 48,28 | 2,5 | 61,32 | 0,92 | indistinguivel |
+| manual_original | Total oficial (com exterior) | 52,24 | 47,76 | 2,0 | 21,62 | 0,19 | PL |
+| outros_divididos | Brasil (sem exterior) | 52,13 | 47,87 | 2,0 | 21,16 | 0,22 | PL |
+| outros_divididos | Exterior (ZZ) | 52,21 | 47,79 | 2,5 | 60,90 | 0,89 | indistinguivel |
+| outros_divididos | Total oficial (com exterior) | 52,13 | 47,87 | 2,0 | 21,39 | 0,22 | PL |
+| limite_pro_pl | Brasil (sem exterior) | 53,92 | 46,08 | 2,0 | 21,50 | 0,17 | PL |
+| limite_pro_pl | Exterior (ZZ) | 53,26 | 46,74 | 2,5 | 61,38 | 0,90 | PL |
+| limite_pro_pl | Total oficial (com exterior) | 53,92 | 46,08 | 2,0 | 21,73 | 0,17 | PL |
+| limite_pro_pt | Brasil (sem exterior) | 50,35 | 49,65 | 2,0 | 22,33 | 0,18 | indistinguivel |
+| limite_pro_pt | Exterior (ZZ) | 50,00 | 50,00 | 2,5 | 61,75 | 0,93 | indistinguivel |
+| limite_pro_pt | Total oficial (com exterior) | 50,35 | 49,65 | 2,0 | 22,55 | 0,18 | indistinguivel |
+
+O total oficial com exterior nunca é rotulado "Brasil". Os cenários cruzados usam a matriz nacional também no exterior; só `zz_propria` usa a matriz própria.
+
+### 7.2 Viés de abstenção da identidade (D-035)
+
+Abstenção do Brasil (sem exterior), % dos aptos: T1 2026 = 20,84; projetada no T2 no cenário base = 21,34; no cenário `analogos` = 20,46; no `identidade_sem_retorno_abst` = 20,50. No base, a abstenção sobe em relação ao T1; no cenário de análogos, cai. A diferença é o viés sistemático documentado na seção 4 (o backtest teve +1,36 p.p.). A base não muda.
+
+Taxa r usada no `identidade_sem_retorno_abst`: **0.0056** (Brasil sem exterior; B nacional 2022 in-sample, média ponderada pelos votos do T1 2022 da coluna ABST das linhas lula, bolsonaro, tebet, ciro e outros). Para o exterior (calculada nos postos de 2022; só seria usada em `zz_propria` com a identidade corrigida, que não existe): 0.0175.
+
+### 7.3 UFs no cenário base (faixa ±2,5 p.p.)
+
+| UF | % PL | Faixa (±) | Veredito | dp boot. |
+|---|---|---|---|---|
+| AC | 68,61 | 2,5 | PL | 0,21 |
+| AL | 43,47 | 2,5 | PT | 0,21 |
+| AM | 49,36 | 2,5 | indistinguivel | 0,20 |
+| AP | 51,07 | 2,5 | indistinguivel | 0,22 |
+| BA | 32,13 | 2,5 | PT | 0,21 |
+| CE | 34,70 | 2,5 | PT | 0,18 |
+| DF | 58,39 | 2,5 | PL | 0,28 |
+| ES | 59,35 | 2,5 | PL | 0,23 |
+| GO | 65,17 | 2,5 | PL | 0,55 |
+| MA | 34,49 | 2,5 | PT | 0,20 |
+| MG | 53,19 | 2,5 | PL | 0,26 |
+| MS | 62,91 | 2,5 | PL | 0,22 |
+| MT | 68,87 | 2,5 | PL | 0,20 |
+| PA | 48,11 | 2,5 | indistinguivel | 0,19 |
+| PB | 36,46 | 2,5 | PT | 0,20 |
+| PE | 34,64 | 2,5 | PT | 0,20 |
+| PI | 27,43 | 2,5 | PT | 0,19 |
+| PR | 65,44 | 2,5 | PL | 0,24 |
+| RJ | 57,71 | 2,5 | PL | 0,24 |
+| RN | 38,29 | 2,5 | PT | 0,19 |
+| RO | 71,75 | 2,5 | PL | 0,21 |
+| RR | 74,78 | 2,5 | PL | 0,18 |
+| RS | 61,00 | 2,5 | PL | 0,24 |
+| SC | 71,64 | 2,5 | PL | 0,24 |
+| SE | 34,86 | 2,5 | PT | 0,21 |
+| SP | 57,69 | 2,5 | PL | 0,28 |
+| TO | 54,54 | 2,5 | PL | 0,19 |
+| ZZ | 51,31 | 2,5 | indistinguivel | 0,92 |
+
+Contagem: 15 UFs com vencedor projetado PL, 9 com PT e 4 indistinguíveis (AM, AP, PA, ZZ).
+
+### 7.4 Linhas compostas dos terceiros (IC95% bootstrap estratificado por UF, 1000 reamostras)
+
+Indicativo (Andrews 2000, seção 4): o bootstrap percentil é inconsistente na fronteira do espaço paramétrico. O critério de "IC largo" (largura de PL−PT > 20 p.p.) é só diagnóstico (D-034). O exterior (matriz própria, só no cenário `zz_propria`) tem IC muito largo.
+
+| Escopo | Categoria | PL | PT | BN | ABST | Largura IC de PL−PT (p.p.) |
+|---|---|---|---|---|---|---|
+| br | cury | 0,45 [0,38; 0,49] | 0,51 [0,42; 0,55] | 0,01 [0,00; 0,12] | 0,02 [0,00; 0,14] | 16,9 |
+| br | renan | 0,55 [0,44; 0,62] | 0,37 [0,29; 0,43] | 0,00 [0,00; 0,09] | 0,07 [0,00; 0,20] | 18,6 |
+| br | caiado | 0,60 [0,49; 0,72] | 0,11 [0,03; 0,19] | 0,00 [0,00; 0,00] | 0,29 [0,19; 0,40] | 33,0 |
+| br | outros_2026 | 0,00 [0,00; 0,00] | 0,44 [0,16; 0,72] | 0,00 [0,00; 0,00] | 0,56 [0,28; 0,84] | 55,7 |
+| zz | cury | 0,36 [0,00; 0,60] | 0,48 [0,24; 0,73] | 0,15 [0,00; 0,39] | 0,00 [0,00; 0,33] | 89,3 |
+| zz | renan | 0,39 [0,01; 0,59] | 0,61 [0,35; 0,85] | 0,00 [0,00; 0,25] | 0,00 [0,00; 0,16] | 96,7 |
+| zz | caiado | 0,45 [0,00; 0,65] | 0,55 [0,16; 0,73] | 0,00 [0,00; 0,08] | 0,00 [0,00; 0,76] | 86,9 |
+| zz | outros_2026 | 0,28 [0,00; 0,61] | 0,45 [0,19; 0,80] | 0,27 [0,00; 0,48] | 0,00 [0,00; 0,36] | 107,3 |
+
+A composição de `outros_2026` pesa cerca de 0,5% dos válidos, e a identificação é fraca (ver `outros_goodman` na tabela 7.1).
+
