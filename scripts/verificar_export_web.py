@@ -443,6 +443,9 @@ def conferir_swing(
 
 
 def main() -> int:
+    # o console do Windows (cp1252) não codifica "→" e outros caracteres das mensagens
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--municipios", nargs="*", default=PADRAO_MUNICIPIOS, help="uf:cd_mun_tse")
     ap.add_argument("--ufs", nargs="*", default=PADRAO_UFS)

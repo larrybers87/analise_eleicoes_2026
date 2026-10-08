@@ -49,6 +49,7 @@
     if (s.provisorio) {
       selo.textContent = 'Resultado provisório';
       selo.classList.add('parcial');
+      $('#nota-status').hidden = false;
     } else {
       selo.textContent = 'Totalização final';
       selo.classList.remove('parcial');
