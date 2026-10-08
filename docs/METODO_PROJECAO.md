@@ -2,7 +2,7 @@
 
 Atualizado em 2026-10-08. Decisões: `docs/DECISOES.md` D-033, D-034 e D-035. Configuração aprovada: `config/projecao_t2.yaml`. Código: `src/eleicao/inferencia_ecologica.py` (métodos) e `src/eleicao/projecao_t2.py` (cenários e saídas). Execução: `python scripts/projetar_t2_2026.py`. Notebook: `notebooks/f5a_projecao_t2.ipynb`.
 
-**Resumo honesto.** Esta é uma projeção por inferência ecológica, calibrada em eleições anteriores. A faixa de incerteza é uma heurística de um único backtest (n=1), não um intervalo de confiança. Regra de leitura: se o % PL projetado ficar a menos de 2 p.p. de 50 (Brasil) ou 2,5 p.p. (UF e exterior), **o método não distingue vencedor**. Os resultados da projeção 2026 estão na seção 7, mantida fora do commit público.
+**Resumo honesto.** Esta é uma projeção por inferência ecológica, calibrada em eleições anteriores. A faixa de incerteza é uma heurística de um único backtest (n=1), não um intervalo de confiança. Regra de leitura: se o % PL projetado ficar a menos de 2 p.p. de 50 (Brasil) ou 2,5 p.p. (UF e exterior), **o método não distingue vencedor**. Os resultados da projeção 2026 estão na seção 7 (públicos desde a D-037) e na aba "2º turno: projeção" do site.
 
 ## 1. Formulação
 

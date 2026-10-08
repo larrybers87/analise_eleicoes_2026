@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
-<title>Presidente 2026 — projeção do 2º turno: método e backtest</title>
-<meta name="description" content="Como funciona a projeção do 2º turno por inferência ecológica e como ela se saiu no teste com as eleições de 2018 e 2022.">
+<title>Presidente 2026 — projeção do 2º turno</title>
+<meta name="description" content="A projeção do 2º turno de 2026 por inferência ecológica, com a faixa de incerteza, e como o método se saiu no teste com as eleições de 2018 e 2022.">
 <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
 <link rel="canonical" href="https://larrybers87.github.io/analise_eleicoes_2026/projecao.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Presidente 2026 · mapa e análises">
-<meta property="og:title" content="Presidente 2026: projeção do 2º turno, método e backtest">
-<meta property="og:description" content="Inferência ecológica a partir dos resultados por município, testada fora da amostra de 2018 para 2022. A projeção de 2026 será publicada junto com o resultado real.">
+<meta property="og:title" content="Presidente 2026: projeção do 2º turno, com método e teste">
+<meta property="og:description" content="Inferência ecológica a partir dos resultados oficiais do 1º turno por município, testada fora da amostra de 2018 para 2022. Não é pesquisa de opinião.">
 <meta property="og:url" content="https://larrybers87.github.io/analise_eleicoes_2026/projecao.html">
 <meta property="og:image" content="https://larrybers87.github.io/analise_eleicoes_2026/img/og.png">
 <meta property="og:image:width" content="1200">
@@ -18,8 +18,8 @@
 <meta property="og:image:alt" content="Mapa do Brasil por município colorido pela mistura dos votos de Flávio Bolsonaro (azul) e Lula (vermelho) no 1º turno de 2026">
 <meta property="og:locale" content="pt_BR">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Presidente 2026: projeção do 2º turno, método e backtest">
-<meta name="twitter:description" content="Inferência ecológica a partir dos resultados por município, testada fora da amostra de 2018 para 2022.">
+<meta name="twitter:title" content="Presidente 2026: projeção do 2º turno, com método e teste">
+<meta name="twitter:description" content="Inferência ecológica a partir dos resultados oficiais do 1º turno, testada fora da amostra de 2018 para 2022. Não é pesquisa de opinião.">
 <meta name="twitter:image" content="https://larrybers87.github.io/analise_eleicoes_2026/img/og.png">
 <meta name="twitter:image:alt" content="Mapa do Brasil por município com o resultado do 1º turno de 2026">
 <link rel="stylesheet" href="css/estilo.css">
@@ -28,7 +28,8 @@
   NENHUM número é digitado nesta página (mesma regra de analises.html, D-030): cada número
   é um <span data-v="chave"> ou célula preenchida por js/projecao.js a partir de
   data/projecao_backtest.json, gerado por scripts/exportar_projecao_web.py.
-  NADA da projeção 2026 entra aqui antes do resultado real do 2º turno (D-036).
+  O bloco da projeção 2026 (data-p="chave") só aparece se o JSON trouxer "projecao_2026"
+  (export com --publicar-projecao-2026, D-037); senão, fica o texto de "será publicada".
   tests/test_exportar_projecao_web.py falha se aparecer número digitado ou chave inexistente.
 -->
 <body class="pg-analises pg-projecao">
@@ -49,8 +50,8 @@
   <p class="intro">
     Esta página explica como o projeto projeta o 2º turno a partir do 1º e mostra como o
     mesmo método se saiu quando foi testado com eleições passadas: estimado com os dados de
-    2018 e aplicado, sem ajustes, ao 1º turno de 2022. A projeção de 2026 em si não está aqui
-    (veja o último bloco).
+    2018 e aplicado, sem ajustes, ao 1º turno de 2022. A projeção de 2026 fica no
+    <a href="#projecao-2026">último bloco</a>.
   </p>
 
   <!-- ===================================================================== -->
@@ -174,16 +175,84 @@
   <!-- ===================================================================== -->
   <section class="achado" id="projecao-2026">
     <h2>A projeção de 2026</h2>
-    <p>
-      A projeção do 2º turno de 2026 já foi feita, antes da votação, com o resultado final do
-      1º turno e com o método e o teste descritos acima, sem alterações.
-    </p>
-    <p>
-      Ela será publicada nesta página junto com o resultado real, depois da totalização do
-      2º turno. Assim a comparação entre o que foi projetado e o que aconteceu é honesta: a
-      projeção não pode ser ajustada depois de conhecido o resultado, e esta página não
-      antecipa nenhum número nem vencedor, no Brasil ou nas UFs.
-    </p>
+
+    <div id="p26-pendente">
+      <p>
+        A projeção do 2º turno de 2026 já foi feita, antes da votação, com o resultado final do
+        1º turno e com o método e o teste descritos acima, sem alterações.
+      </p>
+      <p>
+        Ela será publicada nesta página junto com o resultado real, depois da totalização do
+        2º turno. Assim a comparação entre o que foi projetado e o que aconteceu é honesta: a
+        projeção não pode ser ajustada depois de conhecido o resultado, e esta página não
+        antecipa nenhum número nem vencedor, no Brasil ou nas UFs.
+      </p>
+    </div>
+
+    <div id="p26" hidden>
+      <p class="p26-recorte">Total oficial, com o exterior · cenário base</p>
+      <div class="placar-bloco">
+        <p class="placar-linha" data-p="placar"></p>
+        <p class="placar-linha" data-p="veredito"></p>
+      </div>
+      <p class="p26-faixas">Faixa de cada candidato: <span data-p="faixas"></span></p>
+
+      <h3>Cenários</h3>
+      <p>
+        Nos quatro cenários principais, o PL fica entre <span data-p="cenarios_faixa"></span>
+        dos válidos (total oficial). Eles cruzam duas escolhas: como tratar os eleitores dos
+        candidatos que ficaram de fora (composição ou análogos de 2022) e que padrão de
+        mobilização entre os turnos usar (o de 2022 ou o de 2018).
+      </p>
+      <div class="tabela-rolagem">
+        <table class="tabela-regioes" id="t-cenarios">
+          <thead><tr><th>Cenário</th><th>PL entre os válidos</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p>
+        A base usa a mobilização tipo 2022: é a eleição mais recente, com o mesmo par de
+        partidos no 2º turno, e brancos e nulos no 1º turno de 2026
+        (<span data-p="mob_bn_2026"></span> dos aptos) ficaram perto de 2022
+        (<span data-p="mob_bn_2022"></span>) e longe de 2018 (<span data-p="mob_bn_2018"></span>).
+        Trocar pela mobilização tipo 2018 move o PL em <span data-p="mob_delta_base"></span> no
+        cenário base e em <span data-p="mob_delta_analogos"></span> com os análogos. Foi
+        justamente a mobilização que fez o modelo por blocos errar no teste (bloco anterior).
+      </p>
+
+      <h3>Que modelo é este</h3>
+      <p>
+        A projeção usa o modelo de referência testado acima: terceiros pela regressão de
+        composição, com matriz nacional. Ele foi escolhido porque nenhuma alternativa nem
+        baseline foi mais robusta no teste (veja <a href="#backtest-mapa">o teste</a>,
+        <a href="#backtest-tabela">a tabela</a> e
+        <a href="https://github.com/larrybers87/analise_eleicoes_2026/blob/main/docs/METODO_PROJECAO.md" target="_blank" rel="noopener">docs/METODO_PROJECAO.md</a>).
+        É um modelo aplicado ao resultado oficial do 1º turno, não uma pesquisa de opinião: é
+        inferência ecológica, com os limites descritos no início desta página, e a faixa vem de
+        um único teste.
+      </p>
+
+      <h3>Por UF</h3>
+      <p>
+        Cada UF recebe um vencedor projetado só quando o PL fica fora da faixa de
+        <span data-p="faixa_uf"></span> em torno da metade dos válidos; dentro dela, o método não
+        distingue.
+      </p>
+      <div class="legenda-categorias" id="legenda-p26"></div>
+      <figure class="grafico mapa-erro" id="g-mapa26" aria-label="Mapa do Brasil por UF com o vencedor projetado no 2º turno de 2026 ou indistinguível"></figure>
+      <p class="fonte-grafico" data-p="exterior"></p>
+
+      <p class="nota rodape">
+        Projeção registrada em <span data-p="data_projecao"></span>, no commit
+        <a id="p26-commit" target="_blank" rel="noopener"><span data-p="commit"></span></a>
+        do repositório, antes da votação do 2º turno. Entrada: <span data-p="t1"></span>.
+      </p>
+
+      <div id="p26-comparacao" hidden>
+        <h3>Previsto × real</h3>
+        <div id="p26-comparacao-conteudo"></div>
+      </div>
+    </div>
   </section>
 
   <p class="rodape-pagina">

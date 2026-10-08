@@ -5,7 +5,9 @@
  *   `P.textos[chave]`, o texto JÁ FORMATADO em Python (scripts/exportar_projecao_web.py).
  * - Nenhuma cor é calculada aqui: a cor de cada UF e os stops da legenda vêm prontos do JSON
  *   (eleicao.cores.cor_divergente_simetrica / escala_divergente_assimetrica, D-036).
- * - Esta página não tem NENHUM número da projeção 2026: o JSON só traz o backtest.
+ * - Bloco da projeção 2026 (D-037): só aparece se `P.projecao_2026` não for null. Os textos
+ *   (placar, frase do veredito, faixas) chegam prontos em `P.projecao_2026.textos` e vão para
+ *   os `[data-p]`; a categoria e a cor de cada UF também vêm prontas do JSON.
  */
 'use strict';
 
@@ -91,8 +93,8 @@
     });
   }
 
-  function desenharMapa() {
-    const alvo = $('#g-mapa');
+  /** SVG das UFs em `alvo`; cada path recebe data-uf e um <title> (preenchidos por quem chama). */
+  function mapaUfs(alvo) {
     alvo.innerHTML = '';
     const w = Math.max(280, Math.min(alvo.clientWidth || 600, 600));
     const h = Math.round(w * 0.95);
@@ -126,7 +128,12 @@
       .attr('text-anchor', 'middle')
       .attr('dy', '0.35em')
       .text((f) => f.properties.uf.toUpperCase());
+  }
+
+  function desenharMapa() {
+    mapaUfs($('#g-mapa'));
     pintar();
+    if (P.projecao_2026) desenharMapa26();
   }
 
   function pintar() {
@@ -151,6 +158,59 @@
       `<div class="marcas"><span>${e.rotulo_negativo}</span><span>${e.rotulo_positivo}</span></div>`;
   }
 
+  // ------------------------------------------------------------ projeção 2026
+  function desenharMapa26() {
+    const Q = P.projecao_2026;
+    mapaUfs($('#g-mapa26'));
+    d3.selectAll('#g-mapa26 path').each(function () {
+      const d = Q.ufs[this.dataset.uf];
+      this.setAttribute('fill', d.cor);
+      this.querySelector('title').textContent = d.texto;
+    });
+  }
+
+  function projecao2026() {
+    const Q = P.projecao_2026;
+    if (!Q) return; // sem a flag no export: fica o texto de "será publicada"
+    $('#p26-pendente').hidden = true;
+    $('#p26').hidden = false;
+    document.querySelectorAll('[data-p]').forEach((el) => {
+      const t = Q.textos[el.dataset.p];
+      el.textContent = t === undefined ? '?' : t;
+      if (t === undefined) console.error('chave sem texto:', el.dataset.p);
+    });
+    $('#p26-commit').href = Q.commit.url;
+
+    const corpo = $('#t-cenarios tbody');
+    corpo.innerHTML = '';
+    Q.cenarios.forEach((c) => {
+      const tr = document.createElement('tr');
+      if (c.id === Q.placar.cenario) tr.className = 'referencia';
+      const th = document.createElement('th');
+      th.scope = 'row';
+      th.textContent = c.rotulo;
+      const td = document.createElement('td');
+      td.textContent = c.texto;
+      tr.append(th, td);
+      corpo.appendChild(tr);
+    });
+
+    const leg = $('#legenda-p26');
+    leg.innerHTML = '';
+    Q.categorias.forEach((c) => {
+      const item = document.createElement('span');
+      item.className = 'item';
+      const amostra = document.createElement('i');
+      amostra.style.background = c.cor;
+      const n = Q.contagem_ufs[c.id];
+      const rotulo = c.id === 'indistinguivel' ? `${c.rotulo} (faixa ${Q.textos.faixa_uf})` : c.rotulo;
+      item.append(amostra, document.createTextNode(`${rotulo}: ${n} ${n === 1 ? 'UF' : 'UFs'}`));
+      leg.appendChild(item);
+    });
+
+    if (P.comparacao_t2) $('#p26-comparacao').hidden = false; // estrutura reservada (pós-T2)
+  }
+
   // ------------------------------------------------------------ início
   async function iniciar() {
     let topo;
@@ -169,6 +229,7 @@
     tabela();
     seletor();
     legenda();
+    projecao2026();
     desenharMapa();
 
     let espera = null;

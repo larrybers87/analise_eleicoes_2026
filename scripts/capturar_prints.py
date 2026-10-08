@@ -106,9 +106,11 @@ PRINTS: list[Print] = [
     Print("analises_preview_celular_topo", "analises.html", CELULAR),
     Print("analises_preview_celular_rodape", "analises.html", CELULAR, acao="pagina_fim"),
     Print("analises_preview_celular_renda", "analises.html", CELULAR, elemento="#renda"),
-    # --- aba "2º turno: projeção" (só método e backtest; D-036)
+    # --- aba "2º turno: projeção" (método, backtest e projeção 2026; D-036, D-037)
     Print("projecao_preview_desktop", "projecao.html", DESKTOP, pagina_inteira=True),
     Print("projecao_preview_celular_mapa", "projecao.html", CELULAR, elemento="#backtest-mapa"),
+    Print("projecao_preview_celular_2026", "projecao.html", CELULAR, elemento="#projecao-2026"),
+    Print("projecao_preview_desktop_2026", "projecao.html", DESKTOP, elemento="#projecao-2026"),
 ]
 
 

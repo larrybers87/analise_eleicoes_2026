@@ -110,4 +110,4 @@ Vale virar seção: achados 1 (com a parte de UF), 2 (com o agregado ponderado r
 Limitações que valem para todo o texto: o texto nasceu do snapshot parcial de 05/10/2026 02:59; o dado atual é o final (`and="f"`, `tf="s"`); PIB de 2023 e população do Censo 2022 contra eleitorado de 2026; correlação ecológica em todos os achados de município; e o exterior tratado à parte.
 
 ## F5a - Projeção do 2º turno (08/10/2026)
-Não é um achado de análise exploratória: é um modelo de projeção por inferência ecológica, com método, premissas e backtest em `docs/METODO_PROJECAO.md` e decisões D-033 e D-034. Resultados: seção 7 do documento (fora do commit público). Os JSON de `web/data/` continuam com os números do snapshot de 05/10 02:59; a página `web/analises.html` e o mapa não foram atualizados (pendência).
+Não é um achado de análise exploratória: é um modelo de projeção por inferência ecológica, com método, premissas e backtest em `docs/METODO_PROJECAO.md` e decisões D-033 e D-034. Resultados: seção 7 do documento e aba "2º turno: projeção" do site (D-037).
