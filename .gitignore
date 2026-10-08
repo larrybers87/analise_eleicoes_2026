@@ -25,6 +25,10 @@ data/processed/*zona*
 !data/processed/presidente_2022_t2_municipio_totais.parquet
 !data/processed/eleitorado_perfil_2026_municipio.parquet
 !data/processed/ibge_municipio.parquet
+# Projeção do 2º turno 2026 (F5a, D-035): só Brasil e UF (commit local, push depois de 26/10). O
+# municipal (4,7MB) e os parquet de 2018 continuam bloqueados.
+!data/processed/projecao_t2_2026_br.parquet
+!data/processed/projecao_t2_2026_uf.parquet
 
 # Python
 __pycache__/
