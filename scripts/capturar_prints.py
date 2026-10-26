@@ -111,6 +111,40 @@ PRINTS: list[Print] = [
     Print("projecao_preview_celular_mapa", "projecao.html", CELULAR, elemento="#backtest-mapa"),
     Print("projecao_preview_celular_2026", "projecao.html", CELULAR, elemento="#projecao-2026"),
     Print("projecao_preview_desktop_2026", "projecao.html", DESKTOP, elemento="#projecao-2026"),
+    # --- aba "2º turno: projeção": bloco "Previsto × real" (D-038)
+    Print(
+        "projecao_preview_desktop_previsto_real",
+        "projecao.html",
+        DESKTOP,
+        elemento="#p26-comparacao",
+    ),
+    # --- página "2º turno: resultado" (D-039)
+    Print("segundo_turno_preview_desktop", "segundo-turno.html", DESKTOP, pagina_inteira=True),
+    Print("segundo_turno_preview_celular_topo", "segundo-turno.html", CELULAR),
+    Print(
+        "segundo_turno_preview_celular_extensao",
+        "segundo-turno.html",
+        CELULAR,
+        elemento="#extensao",
+    ),
+    # --- mapa: modos "2º turno" e "Virada" (D-040), sempre a partir do estado da URL
+    Print("mapa_t2_brasil_municipio", "index.html?camada=mun&modo=t2", DESKTOP),
+    Print("mapa_t2_brasil_uf", "index.html?modo=t2", DESKTOP),
+    Print("mapa_virada_brasil_municipio", "index.html?camada=mun&modo=virada", DESKTOP),
+    Print("mapa_virada_minas", "index.html?uf=mg&modo=virada", DESKTOP),
+    Print(
+        "mapa_virada_uirapuru",
+        "index.html?modo=virada",
+        DESKTOP,
+        acao="buscar:uirapuru:5221577",  # pela busca: enquadra o município
+    ),
+    Print("mapa_virada_celular", "index.html?camada=mun&modo=virada", CELULAR),
+    Print(
+        "mapa_virada_celular_legenda_aberta",
+        "index.html?camada=mun&modo=virada",
+        CELULAR,
+        acao="legenda_abrir",
+    ),
 ]
 
 
@@ -146,7 +180,7 @@ def esperar_site(pag: Page, pagina: str) -> None:
         pag.wait_for_timeout(3000)  # MapLibre termina de pintar os tiles vetoriais
     else:
         pag.wait_for_function(
-            "() => [...document.querySelectorAll('[data-v]')]"
+            "() => [...document.querySelectorAll('[data-v],[data-s]')]"
             ".every((e) => e.textContent.trim() && !e.textContent.includes('…'))",
             timeout=60000,
         )
@@ -173,6 +207,9 @@ def aplicar_acao(pag: Page, acao: str | None) -> None:
         pag.evaluate(
             "() => { const p = document.querySelector('#painel'); p.scrollTop = p.scrollHeight; }"
         )
+        pag.wait_for_timeout(300)
+    elif acao == "legenda_abrir":
+        pag.click("#legenda .leg-titulo")
         pag.wait_for_timeout(300)
     elif acao == "pagina_fim":
         pag.evaluate("() => window.scrollTo(0, document.body.scrollHeight)")

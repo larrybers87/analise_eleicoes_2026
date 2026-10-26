@@ -445,7 +445,7 @@ function tooltipT2(p) {
   const aptos = `<span>${num(p.ap2)} eleitores aptos</span>`;
   const lado = p.m2 > 0 ? 'Lula' : p.m2 < 0 ? 'Flávio Bolsonaro' : 'empate';
   if (modoEfetivo() === 't2') {
-    return `<span>${lado}${p.m2 === 0 ? '' : ` por ${pct(Math.abs(p.m2), 1)}`} entre os finalistas</span>` + aptos;
+    return `<span>${lado}${p.m2 === 0 ? '' : ` por ${ppAbs(p.m2)}`} entre os finalistas</span>` + aptos;
   }
   const virou =
     p.vr === 1 ? '<span><b>virou para o PT</b></span>' : p.vr === -1 ? '<span><b>virou para o PL</b></span>' : '';
@@ -455,6 +455,11 @@ function tooltipT2(p) {
     virou +
     aptos
   );
+}
+
+/** Valor absoluto em p.p., sem sinal ("3,6 p.p."). */
+function ppAbs(v) {
+  return sinalPp(Math.abs(v), 1).replace('+', '');
 }
 
 function sinalPp(v, casas) {
@@ -1277,6 +1282,9 @@ function blocoSwing(reg, nivel) {
   );
 }
 
+const NOTA_MARGEM_T2 =
+  'Margem = (PT − PL) em % dos votos dos dois finalistas. Pode diferir de números que usem % dos válidos.';
+
 const NOTA_MARGEM =
   'Margem = (PT − PL) em % dos votos dos dois finalistas, nos dois turnos; swing = margem do 2º ' +
   'turno menos a do 1º. Pode diferir de números que usem % dos válidos.';
@@ -1304,7 +1312,7 @@ function blocoT2(reg, nivel) {
       (modo === 't2'
         ? linha('Lula (2º turno)', `${num(v.pt)} votos`) +
           linha('Flávio Bolsonaro (2º turno)', `${num(v.pl)} votos`) +
-          linha('Margem entre os finalistas', `${lado}${v.m2 === 0 ? '' : ` por ${pct(Math.abs(v.m2), 1)}`}`)
+          linha('Margem entre os finalistas', `${lado}${v.m2 === 0 ? '' : ` por ${ppAbs(v.m2)}`}`)
         : linha('Margem PT − PL, 1º turno', sinalPp(v.m1, 1)) +
           linha('Margem PT − PL, 2º turno', sinalPp(v.m2, 1)) +
           linha('Swing (2º − 1º turno)', sinalPp(v.sw, 1)) +
@@ -1316,7 +1324,7 @@ function blocoT2(reg, nivel) {
     '<div class="secao cand-bloco">' +
     `<h3>${modo === 't2' ? '2º turno 2026' : 'Virada: 1º → 2º turno'}</h3>` +
     corpo +
-    `<p class="dica">${NOTA_MARGEM}${nivel === 'mun' ? '' : ' Brasil sem o exterior.'}</p>` +
+    `<p class="dica">${modo === 't2' ? NOTA_MARGEM_T2 : NOTA_MARGEM}${nivel === 'mun' ? '' : ' Brasil sem o exterior.'}</p>` +
     '</div>'
   );
 }
@@ -1479,7 +1487,7 @@ function legendaT2() {
     '<div class="escala"><span>Flávio Bolsonaro</span><span>Lula</span></div>' +
     '</div>' +
     `<p class="nota-metodo">Margem entre os dois finalistas (não % dos válidos). Satura em ±${num(e.limite_pp)} p.p.</p>` +
-    `<p class="nota">${NOTA_MARGEM} A escala satura em ±${num(e.limite_pp)} p.p.</p>`
+    `<p class="nota">${NOTA_MARGEM_T2}</p>`
   );
 }
 
@@ -1496,8 +1504,8 @@ function legendaVirada() {
     `<span>${sinalPp(e.limite_pp, 0)} ou mais</span></div>` +
     '<div class="escala"><span>para o PL</span><span>para o PT</span></div>' +
     '<div class="sw-contornos">' +
-    `<div class="sw"><i style="background:#fff;border:2px solid ${e.contorno_pt}"></i><span>virou para o PT (${num(S.t2.bruto.br[6])})</span></div>` +
-    `<div class="sw"><i style="background:#fff;border:3px solid ${e.contorno_pl}"></i><span>virou para o PL (${num(S.t2.bruto.br[7])})</span></div>` +
+    `<div class="sw"><i style="background:#fff;border:2px solid ${e.contorno_pt}"></i><span>virou para o PT (${num(S.t2.bruto.br[6])} no Brasil)</span></div>` +
+    `<div class="sw"><i style="background:#fff;border:3px solid ${e.contorno_pl}"></i><span>virou para o PL (${num(S.t2.bruto.br[7])} no Brasil)</span></div>` +
     '</div>' +
     (pl
       ? `<p class="nota-metodo"><button type="button" class="link-btn" data-virou-pl="${pl.ibge}" data-uf="${pl.uf}">` +
