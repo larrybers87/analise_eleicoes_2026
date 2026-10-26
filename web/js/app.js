@@ -322,7 +322,12 @@ function adicionarCamada(id, geojson, promoteId, larguraLinha) {
         ['==', ['get', 'vr'], -1], S.t2 ? S.t2.bruto.escala_virada.contorno_pl : '#ffd400',
         S.t2 ? S.t2.bruto.escala_virada.contorno_pt : '#111111',
       ],
-      'line-width': ['case', ['==', ['get', 'vr'], -1], 3.2, 1.1],
+      'line-width': [
+        'interpolate', ['linear'], ['zoom'],
+        3, ['case', ['==', ['get', 'vr'], -1], 2.4, 0.35],
+        6, ['case', ['==', ['get', 'vr'], -1], 3.2, 0.9],
+        9, ['case', ['==', ['get', 'vr'], -1], 3.6, 1.8],
+      ],
       'line-opacity': modoEfetivo() === 'virada' ? 1 : 0,
     },
   });
@@ -1466,11 +1471,13 @@ function legendaT2() {
   if (!e) return '<p class="nota">Carregando…</p>';
   const fr = (n) => Array.from({ length: n }, (_, i) => i / (n - 1));
   return (
-    '<h3>2º turno: margem entre os finalistas</h3>' +
+    '<h3 class="leg-titulo">2º turno: margem entre os finalistas</h3>' +
+    '<div class="leg-corpo">' +
     `<div class="rampa-dupla"><span class="barra" style="background:${gradiente(e.cores, fr(e.cores.length))}"></span></div>` +
     `<div class="escala ticks"><span>${sinalPp(-e.limite_pp, 0)} ou mais</span><span>0</span>` +
     `<span>${sinalPp(e.limite_pp, 0)} ou mais</span></div>` +
     '<div class="escala"><span>Flávio Bolsonaro</span><span>Lula</span></div>' +
+    '</div>' +
     `<p class="nota-metodo">Margem entre os dois finalistas (não % dos válidos). Satura em ±${num(e.limite_pp)} p.p.</p>` +
     `<p class="nota">${NOTA_MARGEM} A escala satura em ±${num(e.limite_pp)} p.p.</p>`
   );
@@ -1482,30 +1489,52 @@ function legendaVirada() {
   const fr = (n) => Array.from({ length: n }, (_, i) => i / (n - 1));
   const pl = e.virou_pl[0];
   return (
-    '<h3>Virada: swing do 1º para o 2º turno</h3>' +
+    '<h3 class="leg-titulo">Virada: swing do 1º para o 2º turno</h3>' +
+    '<div class="leg-corpo">' +
     `<div class="rampa-dupla"><span class="barra" style="background:${gradiente(e.cores, fr(e.cores.length))}"></span></div>` +
     `<div class="escala ticks"><span>${sinalPp(-e.limite_pp, 0)} ou menos</span><span>0</span>` +
     `<span>${sinalPp(e.limite_pp, 0)} ou mais</span></div>` +
     '<div class="escala"><span>para o PL</span><span>para o PT</span></div>' +
     '<div class="sw-contornos">' +
-    `<div class="sw"><i style="background:#fff;border:2px solid ${e.contorno_pt}"></i><span>virou para o PT</span></div>` +
-    `<div class="sw"><i style="background:#fff;border:3px solid ${e.contorno_pl}"></i><span>virou para o PL</span></div>` +
+    `<div class="sw"><i style="background:#fff;border:2px solid ${e.contorno_pt}"></i><span>virou para o PT (${num(S.t2.bruto.br[6])})</span></div>` +
+    `<div class="sw"><i style="background:#fff;border:3px solid ${e.contorno_pl}"></i><span>virou para o PL (${num(S.t2.bruto.br[7])})</span></div>` +
     '</div>' +
     (pl
-      ? `<p class="nota"><button type="button" class="link-btn" data-virou-pl="${pl.ibge}" data-uf="${pl.uf}">` +
+      ? `<p class="nota-metodo"><button type="button" class="link-btn" data-virou-pl="${pl.ibge}" data-uf="${pl.uf}">` +
         `Único município que virou para o PL: ${titulo(pl.nome)}/${pl.uf.toUpperCase()} (ver no mapa)</button></p>`
       : '') +
+    '</div>' +
     `<p class="nota-metodo">Margem entre os dois finalistas (não % dos válidos). Escala truncada em ±${num(e.limite_pp)} p.p.; ` +
     'município pequeno oscila: veja os aptos no balão.</p>' +
-    `<p class="nota"><b>Escala truncada em ±${num(e.limite_pp)} p.p.</b> (${num(e.n_alem_escala)} de ` +
-    `${num(e.n_total)} municípios passam disso). Município pequeno oscila muito por acaso: veja os ` +
-    `eleitores aptos no balão antes de ler padrão numa cor. ${NOTA_MARGEM}</p>`
+    `<p class="nota">${num(e.n_alem_escala)} de ${num(e.n_total)} municípios passam da escala. ` +
+    `${NOTA_MARGEM}</p>`
   );
+}
+
+/** No celular a legenda dos modos do 2º turno começa recolhida (título + nota de método,
+ *  que continua visível para o print); tocar no título abre a escala. */
+function colapsarLegendaNoCelular(el) {
+  const estreita = window.matchMedia('(max-width: 820px)').matches;
+  const t = el.querySelector('.leg-titulo');
+  if (!t || !estreita) return;
+  el.classList.add('colapsavel', 'colapsada');
+  t.setAttribute('role', 'button');
+  t.setAttribute('aria-expanded', 'false');
+  t.tabIndex = 0;
+  const alternar = () => {
+    const fechada = el.classList.toggle('colapsada');
+    t.setAttribute('aria-expanded', String(!fechada));
+  };
+  t.addEventListener('click', alternar);
+  t.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); alternar(); }
+  });
 }
 
 function desenharLegenda() {
   rotularTurno();
   const el = $('#legenda');
+  el.classList.remove('colapsavel', 'colapsada');
   if (S.candidato) {
     el.innerHTML = legendaCandidato();
     return;
@@ -1516,6 +1545,7 @@ function desenharLegenda() {
   }
   if (S.modo === 't2' || S.modo === 'virada') {
     el.innerHTML = S.modo === 't2' ? legendaT2() : legendaVirada();
+    colapsarLegendaNoCelular(el);
     const b = el.querySelector('[data-virou-pl]');
     if (b) {
       b.addEventListener('click', async () => {

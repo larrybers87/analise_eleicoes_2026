@@ -790,3 +790,9 @@ main.analises {
   background: none; border: 0; padding: 0; font: inherit; color: var(--destaque);
   text-decoration: underline; cursor: pointer; text-align: left;
 }
+
+/* legenda recolhível dos modos do 2º turno (só no celular; a nota de método fica sempre) */
+#legenda.colapsavel .leg-titulo { cursor: pointer; }
+#legenda.colapsavel .leg-titulo::after { content: " ▾"; color: var(--tinta-fraca); }
+#legenda.colapsavel.colapsada .leg-titulo::after { content: " ▸"; }
+#legenda.colapsavel.colapsada .leg-corpo { display: none; }
