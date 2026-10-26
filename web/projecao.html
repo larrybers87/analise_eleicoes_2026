@@ -250,7 +250,62 @@
 
       <div id="p26-comparacao" hidden>
         <h3>Previsto × real</h3>
-        <div id="p26-comparacao-conteudo"></div>
+        <p class="p26-recorte">2º turno apurado · total oficial, com o exterior</p>
+        <div class="placar-bloco">
+          <p class="placar-linha" data-c="placar_prev"></p>
+          <p class="placar-linha" data-c="placar_real"></p>
+          <p class="placar-linha" data-c="erro"></p>
+        </div>
+        <p data-c="vencedor"></p>
+        <p>
+          A projeção não foi alterada depois do resultado (commit citado acima).
+          <span data-c="ufs_sinal"></span> <span data-c="ufs_lado"></span>;
+          <span data-c="ufs_faixa"></span>
+          <span data-c="abst"></span> <span data-c="cenarios_resumo"></span>
+        </p>
+        <div class="tabela-rolagem">
+          <table class="tabela-regioes" id="t-cenarios-real">
+            <thead><tr><th>Cenário</th><th>PL previsto</th><th>Erro</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <h3>Onde a projeção errou, por UF</h3>
+        <div class="legenda-erro" id="legenda-erro26" aria-hidden="true"></div>
+        <figure class="grafico mapa-erro" id="g-mapa-erro26" aria-label="Mapa do Brasil por UF com o erro da projeção do percentual do PL no 2º turno de 2026"></figure>
+        <p class="fonte-grafico">
+          Erro = previsto menos real, em pontos percentuais do PL entre os válidos. A escala
+          satura em ±<span data-c="limite_escala"></span> p.p. Exterior fora do mapa.
+        </p>
+
+        <h3>De onde veio o erro (estimativa ecológica, intervalo por UF)</h3>
+        <p data-c="leitura_decomposicao"></p>
+        <p>
+          Os números abaixo são estimativas, não medição: vêm de inferência ecológica
+          (município, não eleitor), com parcelas de origem muito correlacionadas entre si, e
+          não devem ser lidos como decomposição exata. Cada linha mostra quantos votos a mais
+          de vantagem do PL sobre o PT (em milhões) a projeção assumiu para aquele grupo de
+          eleitores do 1º turno, em comparação com a estimativa do fluxo real. Somando as
+          linhas, dá cerca de <span data-c="soma_dec"></span> milhões de votos, a ordem de
+          grandeza do erro no Brasil sem exterior. O intervalo trata cada UF inteira como uma
+          unidade (o mais conservador dos três esquemas testados); quando inclui zero, o grupo
+          não pode ser apontado como fonte do erro.
+        </p>
+        <div class="tabela-rolagem">
+          <table class="tabela-regioes" id="t-decomposicao">
+            <thead><tr><th>Grupo de eleitores</th><th>Votos a mais para o PL (mi)</th><th>Intervalo de confiança</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <p class="nota">
+          <b>Limites.</b> Isto é inferência ecológica (município, não eleitor) e o resultado de
+          cada terceiro candidato varia muito entre regiões; por isso a página não publica a
+          matriz completa como se fosse medida. Sem modelo algum, só aritmética por município:
+          o PT teve <span data-c="pt_t2"></span> milhões de votos no Brasil sem exterior contra
+          <span data-c="lula_t1"></span> milhões de Lula no 1º turno, e ao menos
+          <span data-c="pt_fora_lula"></span> milhões desses votos vieram de quem não votou em
+          Lula no 1º turno.
+        </p>
       </div>
     </div>
   </section>

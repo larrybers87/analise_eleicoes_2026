@@ -127,28 +127,33 @@ def processar_br(eleicao: int) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 def main(eleicao: int) -> int:
     config.DATA_PROCESSED.mkdir(parents=True, exist_ok=True)
+    turno = "t2" if eleicao == config.ELEICAO_FEDERAL_T2 else "t1"
     config_municipios = _carregar_config_municipios(eleicao)
 
     print("processando municípios...")
     mun_candidatos, mun_totais = processar_municipios(eleicao, config_municipios)
     mun_candidatos.to_parquet(
-        config.DATA_PROCESSED / "presidente_t1_municipio.parquet", index=False
+        config.DATA_PROCESSED / f"presidente_{turno}_municipio.parquet", index=False
     )
     mun_totais.to_parquet(
-        config.DATA_PROCESSED / "presidente_t1_municipio_totais.parquet", index=False
+        config.DATA_PROCESSED / f"presidente_{turno}_municipio_totais.parquet", index=False
     )
     print(f"  {len(mun_totais)} municípios, {len(mun_candidatos)} linhas de candidato")
 
     print("processando UFs (arquivos oficiais, não soma dos municípios)...")
     uf_candidatos, uf_totais = processar_ufs(eleicao, config_municipios)
-    uf_candidatos.to_parquet(config.DATA_PROCESSED / "presidente_t1_uf.parquet", index=False)
-    uf_totais.to_parquet(config.DATA_PROCESSED / "presidente_t1_uf_totais.parquet", index=False)
+    uf_candidatos.to_parquet(config.DATA_PROCESSED / f"presidente_{turno}_uf.parquet", index=False)
+    uf_totais.to_parquet(
+        config.DATA_PROCESSED / f"presidente_{turno}_uf_totais.parquet", index=False
+    )
     print(f"  {len(uf_totais)} UFs (incl. zz), {len(uf_candidatos)} linhas de candidato")
 
     print("processando BR (arquivo oficial)...")
     br_candidatos, br_totais = processar_br(eleicao)
-    br_candidatos.to_parquet(config.DATA_PROCESSED / "presidente_t1_br.parquet", index=False)
-    br_totais.to_parquet(config.DATA_PROCESSED / "presidente_t1_br_totais.parquet", index=False)
+    br_candidatos.to_parquet(config.DATA_PROCESSED / f"presidente_{turno}_br.parquet", index=False)
+    br_totais.to_parquet(
+        config.DATA_PROCESSED / f"presidente_{turno}_br_totais.parquet", index=False
+    )
     print(f"  {len(br_candidatos)} linhas de candidato (BR)")
 
     return 0

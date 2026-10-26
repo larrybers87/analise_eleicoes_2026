@@ -72,7 +72,8 @@ def test_chaves_de_topo(dados):
     assert [m["id"] for m in dados["tabela"]] == MODELOS_TABELA
     assert [m["id"] for m in dados["modelos_mapa"]] == MODELOS_MAPA
     assert set(dados["valores"]) == set(dados["textos"])
-    assert dados["comparacao_t2"] is None  # estrutura reservada para o pós-T2
+    comp = dados["comparacao_t2"]  # None sem --publicar-comparacao-t2
+    assert comp is None or {"placar", "cenarios", "ufs", "decomposicao", "textos"} <= set(comp)
 
 
 @sem_json

@@ -473,3 +473,9 @@ Usados pelo pacote `src/eleicao/analise/` (decisões em `DECISOES.md` D-020 a D-
 - **Divergência conhecida de BA** (`data/known_issues.csv`) continua afetando as somas de Flávio (nº 22): soma dos municípios − total BR = −236 votos, e de Lula (nº 13): −967. Os testes de invariante exigem exatamente esses valores.
 - **Municípios com `comparecimento + abstenção ≠ eleitorado`**: 3 municípios da BA (33693, 34673, 36013), os da divergência conhecida. Entram nos agregados com o valor do TSE (sem correção).
 - **Empates exatos sem vencedor**: SP 62448 e TO 73555 (2 municípios). `vencedor_municipal` devolve `nr_vencedor = None` e margem 0; não entram nas contagens de vencedores.
+
+## T2 2026 (eleição 6258), coletado em 26/10/2026
+- 5.786 arquivos, 0 erro; mesma estrutura do T1 (`processar_presidente.py --eleicao 6258` grava `presidente_t2_*`; o turno entra no nome do arquivo). BR final às 23:26:38 de 25/10, `and=f`, `tf=s`.
+- Totais BR: Lula 64.256.232 (51,785%), Flávio 59.826.041 (48,215%), margem 4.430.191; abstenção 19,22%; brancos 1.430.496, nulos 2.723.305.
+- 41 seções "não instaladas" (`extra_s_sni`), todas no exterior, 423 aptos (`extra_e_esni`): `secoes_totalizadas` < `secoes_total` não indica pendência de apuração.
+- **Extensão do horário (fontes de imprensa, não verificadas nos dados do TSE)**: liminar do ministro Zanin (STF) às 17h01 estende a votação até as 19h (Brasília); o TSE aplicou só às seções ainda abertas (as fontes divergem: Band e Gazeta do Povo descrevem a liminar como válida para todo o país; TSE e Câmara a limitam às seções abertas); a divulgação ficou suspensa por um tempo. Número da imprensa, NÃO verificado nos nossos dados: 35.521 votos registrados depois das 17h (0,8% da margem de 4.430.191; nenhum cenário plausível de votos pós-17h chega perto dela). Ao publicar, usar essa redação. Nossos arquivos não têm horário por seção; o cruzamento exige o boletim de urna.

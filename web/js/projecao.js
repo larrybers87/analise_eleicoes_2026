@@ -134,6 +134,7 @@
     mapaUfs($('#g-mapa'));
     pintar();
     if (P.projecao_2026) desenharMapa26();
+    desenharMapaErro26();
   }
 
   function pintar() {
@@ -146,12 +147,11 @@
     });
   }
 
-  function legenda() {
-    const e = P.escala;
+  function legenda(alvo = '#legenda-erro', e = P.escala) {
     const stops = e.stops
       .map(([v, c]) => `${c} ${(((v + e.limite_pp) / (2 * e.limite_pp)) * 100).toFixed(1)}%`)
       .join(', ');
-    $('#legenda-erro').innerHTML =
+    $(alvo).innerHTML =
       `<div class="barra" style="background: linear-gradient(to right, ${stops})"></div>` +
       `<div class="marcas"><span>${sinal(-e.limite_pp, 1)} p.p.</span><span>${fmt(0, 0)}</span>` +
       `<span>${sinal(e.limite_pp, 1)} p.p.</span></div>` +
@@ -208,7 +208,63 @@
       leg.appendChild(item);
     });
 
-    if (P.comparacao_t2) $('#p26-comparacao').hidden = false; // estrutura reservada (pós-T2)
+    if (P.comparacao_t2) comparacao();
+  }
+
+  // ------------------------------------------------------------ previsto × real
+  function comparacao() {
+    const C = P.comparacao_t2;
+    $('#p26-comparacao').hidden = false;
+    document.querySelectorAll('[data-c]').forEach((el) => {
+      const t = C.textos[el.dataset.c];
+      el.textContent = t === undefined ? '?' : t;
+      if (t === undefined) console.error('chave sem texto:', el.dataset.c);
+    });
+
+    const corpo = $('#t-cenarios-real tbody');
+    corpo.innerHTML = '';
+    C.cenarios.forEach((c) => {
+      const tr = document.createElement('tr');
+      if (c.id === 'base') tr.className = 'referencia';
+      const th = document.createElement('th');
+      th.scope = 'row';
+      th.textContent = c.rotulo;
+      const a = document.createElement('td');
+      a.textContent = c.prev_texto;
+      const b = document.createElement('td');
+      b.textContent = c.erro_texto + (c.dentro_da_faixa ? ' (dentro da faixa)' : '');
+      tr.append(th, a, b);
+      corpo.appendChild(tr);
+    });
+
+    const dec = $('#t-decomposicao tbody');
+    dec.innerHTML = '';
+    C.decomposicao.forEach((d) => {
+      const tr = document.createElement('tr');
+      const th = document.createElement('th');
+      th.scope = 'row';
+      th.textContent = d.rotulo;
+      const a = document.createElement('td');
+      a.textContent = d.texto;
+      const b = document.createElement('td');
+      b.textContent = d.texto_ic + (d.distingue_de_zero ? '' : ' (inclui zero)');
+      tr.append(th, a, b);
+      dec.appendChild(tr);
+    });
+
+    legenda('#legenda-erro26', C.escala);
+    desenharMapaErro26();
+  }
+
+  function desenharMapaErro26() {
+    const C = P.comparacao_t2;
+    if (!C) return;
+    mapaUfs($('#g-mapa-erro26'));
+    d3.selectAll('#g-mapa-erro26 path').each(function () {
+      const d = C.ufs[this.dataset.uf];
+      this.setAttribute('fill', d.cor);
+      this.querySelector('title').textContent = d.texto;
+    });
   }
 
   // ------------------------------------------------------------ início

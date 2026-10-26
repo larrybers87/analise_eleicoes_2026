@@ -60,6 +60,14 @@ TOTAIS_T1_2026 = PROC / "presidente_t1_municipio_totais.parquet"
 PROJECAO_BR = PROC / "projecao_t2_2026_br.parquet"
 PROJECAO_UF = PROC / "projecao_t2_2026_uf.parquet"
 
+T2_BR = PROC / "presidente_t2_br.parquet"
+T2_BR_TOTAIS = PROC / "presidente_t2_br_totais.parquet"
+T2_UF = PROC / "presidente_t2_uf.parquet"
+FLUXO = config.RAIZ / "data" / "interim" / "fluxo_t1_t2"
+DECOMPOSICAO = FLUXO / "decomposicao_erro.csv"
+GANHOS = FLUXO / "ganhos_minimos.json"
+GERADO_POR[FLUXO] = "scripts/fluxo_t1_t2.py"
+
 PERMITIDOS_COM_FLAG = frozenset({PROJECAO_BR, PROJECAO_UF})
 """Os ÚNICOS arquivos com "2026" no nome que podem ser lidos, e só com a flag."""
 
@@ -97,7 +105,7 @@ def commit_da_projecao() -> dict[str, str]:
     return {"hash": saida[-2], "data_iso": saida[-1]}
 
 
-def gerar(publicar: bool) -> tuple[dict[str, Any], list[Path]]:
+def gerar(publicar: bool, comparar: bool = False) -> tuple[dict[str, Any], list[Path]]:
     """Monta o JSON. Devolve (dados, caminhos lidos), na ordem de leitura."""
     lidos: list[Path] = []
 
@@ -111,6 +119,8 @@ def gerar(publicar: bool) -> tuple[dict[str, Any], list[Path]]:
     lista = [*CSV_BACKTEST.values(), *TOTAIS.values(), CAND_2022_T2]
     if publicar:
         lista += [TOTAIS_T1_2026, PROJECAO_BR, PROJECAO_UF]
+    if comparar:
+        lista += [T2_BR, T2_BR_TOTAIS, T2_UF, DECOMPOSICAO, GANHOS]
     for c in lista:
         checar_caminho(c, publicar)  # falha cedo, antes de ler qualquer coisa
 
@@ -135,6 +145,22 @@ def gerar(publicar: bool) -> tuple[dict[str, Any], list[Path]]:
             bn_t1_por_ano={a: dados["mobilizacao"][a]["bn_t1"] for a in ("2018", "2022")},
             commit=commit_da_projecao(),
         )
+    if comparar:
+        if not publicar:
+            raise SystemExit("--publicar-comparacao-t2 exige --publicar-projecao-2026")
+        from eleicao import comparacao_web
+
+        checar_caminho(GANHOS, publicar)
+        lidos.append(GANHOS)
+        dados["comparacao_t2"] = comparacao_web.montar(
+            br_proj=ler(PROJECAO_BR),
+            uf_proj=ler(PROJECAO_UF),
+            cand_br=ler(T2_BR),
+            tot_br=ler(T2_BR_TOTAIS),
+            cand_uf=ler(T2_UF),
+            decomposicao=ler(DECOMPOSICAO),
+            ganhos=json.loads(GANHOS.read_text(encoding="utf-8")),
+        )
     dados["fontes"] = [p.relative_to(config.RAIZ).as_posix() for p in lidos]
     return dados, lidos
 
@@ -148,8 +174,14 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="inclui o bloco da projeção 2026 (lê só projecao_t2_2026_br/_uf.parquet)",
     )
+    ap.add_argument(
+        "--publicar-comparacao-t2",
+        action="store_true",
+        help="inclui 'Previsto × real' (lê o T2 apurado e data/interim/fluxo_t1_t2/); "
+        "exige --publicar-projecao-2026",
+    )
     args = ap.parse_args(argv)
-    dados, lidos = gerar(args.publicar_projecao_2026)
+    dados, lidos = gerar(args.publicar_projecao_2026, args.publicar_comparacao_t2)
     texto = json.dumps(dados, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     SAIDA.write_bytes(texto)
     print(f"  lidos: {len(lidos)} arquivos")
