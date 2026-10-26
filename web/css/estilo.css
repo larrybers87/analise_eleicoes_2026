@@ -215,6 +215,8 @@ main {
 }
 #legenda h3 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--tinta-fraca); }
 #legenda .nota { margin: 6px 0 0; color: var(--tinta-fraca); line-height: 1.35; }
+#legenda .sw-contornos { display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+#legenda .nota-metodo { margin: 5px 0 0; color: var(--tinta-fraca); line-height: 1.3; font-size: 11px; }
 #legenda .swatches { display: flex; flex-direction: column; gap: 3px; }
 #legenda .sw { display: flex; align-items: center; gap: 7px; }
 #legenda .sw i { width: 14px; height: 14px; border-radius: 3px; flex: 0 0 auto; border: 1px solid rgba(0, 0, 0, .12); }
@@ -546,6 +548,8 @@ main {
   #legenda .sw-sigla { display: inline; }
   #legenda h3 { margin-bottom: 4px; }
   #legenda .nota { display: none; }
+  #legenda .sw-contornos { flex-direction: row; gap: 12px; }
+  #legenda .nota-metodo { font-size: 10px; margin-top: 3px; }
   body.painel-fechado #legenda { bottom: 42px; }
 }
 
@@ -780,3 +784,9 @@ main.analises {
 #projecao-2026 .tabela-rolagem { margin-bottom: 10px; }
 #t-cenarios tbody th { font-weight: 400; }
 #t-cenarios tr.referencia th, #t-cenarios tr.referencia td { font-weight: 700; }
+
+/* botão em forma de link (legenda do modo "Virada") */
+.link-btn {
+  background: none; border: 0; padding: 0; font: inherit; color: var(--destaque);
+  text-decoration: underline; cursor: pointer; text-align: left;
+}

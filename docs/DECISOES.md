@@ -275,3 +275,10 @@ Alternativas: publicar a matriz com IC por município (rejeitada: dá falsa prec
 
 ## D-039 · 2026-10-26 · Swing T1→T2: margem entre os dois finalistas nos dois turnos
 O swing do T1→T2 usa (PT − PL)/(PT + PL) em ambos os turnos. Com os válidos no denominador do T1 (como no swing 2022→2026, D-023), os terceiros (~7% dos válidos) inflam a margem do T2 nos redutos de cada lado e a leitura de Minas muda (uniforme × gradiente norte-sul). Checado também em logit. Mesorregiões de MG: geobr year=2018 (`carga.mesorregiao_por_municipio`). Alternativa rejeitada: margem sobre válidos (artefato mecânico).
+
+## D-040 · 2026-10-26 · Modos "2º turno" e "Virada" no mapa principal
+1. **Dados** em `web/data/resultados/t2.json` (`scripts/exportar_web_t2.py` → `src/eleicao/t2_mapa_web.py`), arrays por município na ordem de `cd_mun_ibge` (alinhados a `meta.forca_offsets`, com checagem de n e de offsets), escalas prontas em Python. Sem tocar no `exportar_web.py`; carregado sob demanda (não versionado por `?v=`, para não ficar preso ao `idg` do T1). 194 KB (78 KB gzip).
+2. **Resultado do 2º turno**: margem entre os finalistas, escala simétrica PL↔PT saturando em ±40 p.p.
+3. **Virada**: swing 1º→2º turno com a escala **truncada em ±10 p.p.** (43 de 5.571 municípios passam disso); o balão mostra os eleitores aptos, porque município pequeno oscila por acaso. Contorno nos municípios que mudaram de lado: escuro para os 211 que foram ao PT, amarelo e mais grosso para o único que foi ao PL (Uirapuru/GO), com botão na legenda que leva até ele.
+4. **Nota de método na legenda** (visível também no celular, onde `.nota` fica oculta): margem entre os dois finalistas, não % dos válidos (D-039). O cabeçalho e o painel passam a dizer "2º turno" nesses modos, e as seções que seguem mostram o 1º turno com esse rótulo.
+Alternativas: escala linear sem truncar (rejeitada: pinta de forma intensa justamente os municípios menos informativos); filtro "virou" separado do swing (rejeitada: o contorno custa uma camada e mantém tudo num modo).

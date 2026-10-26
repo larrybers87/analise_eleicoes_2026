@@ -30,7 +30,8 @@ const S = {
   forca: new Map(),         // nr -> {p98, pct: [5571 números], mapas: Map(escopo -> Map(ibge->pct))}
 
   swing: null,              // data/resultados/swing.json (lazy) + mapas por escopo
-  modo: 'mistura',          // modo BASE (sem candidato): 'mistura' | 'margem' | 'swing'
+  t2: null,                 // data/resultados/t2.json (lazy) + mapas por escopo
+  modo: 'mistura',          // modo BASE (sem candidato): 'mistura' | 'margem' | 'swing' | 't2' | 'virada'
   candidato: null,          // nr do candidato destacado (null = "Nenhum")
   modoCand: 'venceu',       // modo COM candidato: 'venceu' | 'forca'
   camadaBr: 'uf',           // 'uf' | 'mun'  (só quando não há UF ativa)
@@ -47,6 +48,17 @@ const CAMPO_COR = { mistura: 'cor_mistura', margem: 'cor_margem' };
 /** Modo de cor efetivo. Com candidato selecionado, os 2 modos novos
  *  ("Onde venceu"/"Força") substituem os 2 base; "Nenhum" devolve o
  *  comportamento original do mapa, sem nenhuma diferença. */
+/** Modos do 2º turno (sem candidato selecionado). */
+function modoT2() {
+  return !S.candidato && (S.modo === 't2' || S.modo === 'virada');
+}
+
+/** Rótulo do turno no cabeçalho conforme o modo. */
+function rotularTurno() {
+  const el = document.getElementById('subtitulo');
+  if (el) el.textContent = modoT2() ? (S.modo === 't2' ? '2º turno' : '1º → 2º turno') : '1º turno';
+}
+
 function modoEfetivo() {
   return S.candidato ? S.modoCand : S.modo;
 }
@@ -236,6 +248,13 @@ function expressaoCor() {
     const e = S.meta.escala_swing;
     return ['case', ['has', 'dm'], interpolar(['get', 'dm'], e.valores, e.cores), e.cor_sem_par];
   }
+  if (m === 't2' || m === 'virada') {
+    // escalas prontas em t2.json (Python); aqui só interpola. Sem dado: cinza.
+    if (!S.t2) return '#dddddd';
+    const e = m === 't2' ? S.t2.bruto.escala_t2 : S.t2.bruto.escala_virada;
+    const campo = m === 't2' ? 'm2' : 'sw2';
+    return ['case', ['has', campo], interpolar(['get', campo], e.valores, e.cores), '#dddddd'];
+  }
   const nr = S.candidato;
   if (m === 'venceu') {
     // mesma rampa do modo "vencedor + margem", restrita a quem ele venceu:
@@ -290,6 +309,22 @@ function adicionarCamada(id, geojson, promoteId, larguraLinha) {
     source: id,
     filter: ['==', ['get', 'sem_par'], true],
     paint: { 'fill-pattern': 'hachura', 'fill-opacity': modoEfetivo() === 'swing' ? 1 : 0 },
+  });
+  // contorno dos municípios que mudaram de lado (só no modo "Virada")
+  map.addLayer({
+    id: `${id}-virou`,
+    type: 'line',
+    source: id,
+    filter: ['in', ['get', 'vr'], ['literal', [1, -1]]],
+    paint: {
+      'line-color': [
+        'case',
+        ['==', ['get', 'vr'], -1], S.t2 ? S.t2.bruto.escala_virada.contorno_pl : '#ffd400',
+        S.t2 ? S.t2.bruto.escala_virada.contorno_pt : '#111111',
+      ],
+      'line-width': ['case', ['==', ['get', 'vr'], -1], 3.2, 1.1],
+      'line-opacity': modoEfetivo() === 'virada' ? 1 : 0,
+    },
   });
   map.addLayer({
     id: `${id}-linha`,
@@ -360,6 +395,8 @@ function mostrarTooltip(ponto, p) {
   let corpo;
   if (modoEfetivo() === 'swing') {
     corpo = tooltipSwing(p);
+  } else if (modoEfetivo() === 't2' || modoEfetivo() === 'virada') {
+    corpo = tooltipT2(p);
   } else if (!venc) {
     corpo = p.margem_pp === 0 ? '<span>empate exato: sem vencedor</span>' : '<span>sem voto válido</span>';
   } else if (modoEfetivo() === 'forca') {
@@ -398,6 +435,23 @@ function tooltipSwing(p) {
   );
 }
 
+function tooltipT2(p) {
+  if (p.m2 === undefined) return '<span>carregando 2º turno…</span>';
+  const aptos = `<span>${num(p.ap2)} eleitores aptos</span>`;
+  const lado = p.m2 > 0 ? 'Lula' : p.m2 < 0 ? 'Flávio Bolsonaro' : 'empate';
+  if (modoEfetivo() === 't2') {
+    return `<span>${lado}${p.m2 === 0 ? '' : ` por ${pct(Math.abs(p.m2), 1)}`} entre os finalistas</span>` + aptos;
+  }
+  const virou =
+    p.vr === 1 ? '<span><b>virou para o PT</b></span>' : p.vr === -1 ? '<span><b>virou para o PL</b></span>' : '';
+  return (
+    `<span>swing 1º→2º turno: <b>${sinalPp(p.sw2)}</b></span>` +
+    `<span>margem PT − PL: ${sinalPp(p.m1, 1).replace(' p.p.', '')} → ${sinalPp(p.m2, 1)}</span>` +
+    virou +
+    aptos
+  );
+}
+
 function sinalPp(v, casas) {
   if (v === null || v === undefined || !isFinite(v)) return '—';
   const c = casas ?? (Math.abs(v) < 1 && v !== 0 ? 2 : 1);
@@ -411,12 +465,15 @@ function aplicarModoNoMapa() {
       map.setPaintProperty(`${id}-fill`, 'fill-color', expressaoCor());
       map.setPaintProperty(`${id}-fill`, 'fill-opacity', expressaoOpacidade());
       map.setPaintProperty(`${id}-hachura`, 'fill-opacity', modoEfetivo() === 'swing' ? 1 : 0);
+      if (map.getLayer(`${id}-virou`)) {
+        map.setPaintProperty(`${id}-virou`, 'line-opacity', modoEfetivo() === 'virada' ? 1 : 0);
+      }
     }
   }
 }
 
 function visivel(id, mostrar) {
-  for (const sufixo of ['-fill', '-hachura', '-linha', '-realce']) {
+  for (const sufixo of ['-fill', '-hachura', '-virou', '-linha', '-realce']) {
     if (map.getLayer(id + sufixo)) {
       map.setLayoutProperty(id + sufixo, 'visibility', mostrar ? 'visible' : 'none');
     }
@@ -677,10 +734,110 @@ async function prepararSwing() {
   }
 }
 
+/* --------------- modos "2º turno" e "Virada" (t2.json) -------------------
+ * Mesma ordem posicional do swing.json. Margem = (PT − PL) em % dos dois finalistas
+ * nos dois turnos; swing = margem T2 − margem T1 (D-039). Escalas prontas em t2.json. */
+
+const CAMPOS_REG_T2 = ['m1', 'm2', 'sw', 'pt', 'pl', 'aptos', 'virou_pt', 'virou_pl', 'municipios'];
+
+async function garantirT2() {
+  if (S.t2) return S.t2;
+  ocupado(1, 'Carregando 2º turno…');
+  try {
+    const bruto = await obter('data/resultados/t2.json');
+    if (bruto.n !== S.meta.n_municipios_br) throw new Error('t2.json desalinhado do meta.json');
+    S.t2 = { bruto, mapas: new Map() };
+  } finally {
+    ocupado(-1);
+  }
+  return S.t2;
+}
+
+async function mapaT2(escopo) {
+  const t = await garantirT2();
+  if (t.mapas.has(escopo)) return t.mapas.get(escopo);
+  if (escopo === 'br') await garantirIndice();
+  const base = escopo === 'br' ? 0 : S.meta.forca_offsets[escopo];
+  const b = t.bruto;
+  const mapa = new Map();
+  codigosDoEscopo(escopo).forEach((c, i) => {
+    const k = base + i;
+    mapa.set(c, { m1: b.m1[k], m2: b.m2[k], sw: b.sw[k], pt: b.pt[k], pl: b.pl[k], aptos: b.aptos[k], vr: b.vr[k] });
+  });
+  t.mapas.set(escopo, mapa);
+  return mapa;
+}
+
+function t2DoMunicipio(ibge) {
+  if (!S.t2) return null;
+  for (const mapa of S.t2.mapas.values()) if (mapa.has(String(ibge))) return mapa.get(String(ibge));
+  return null;
+}
+
+/** Objeto {m1,m2,sw,pt,pl,aptos,...} de uma região agregada (array `formato_regiao`). */
+function regiaoT2(arr) {
+  const o = {};
+  CAMPOS_REG_T2.forEach((k, i) => { o[k] = arr[i]; });
+  return o;
+}
+
+function injetarT2(geojson, chaveId, buscar) {
+  for (const f of geojson.features) {
+    const v = buscar(String(f.properties[chaveId]));
+    if (v) {
+      f.properties.m1 = v.m1;
+      f.properties.m2 = v.m2;
+      f.properties.sw2 = v.sw;
+      f.properties.pt2 = v.pt;
+      f.properties.pl2 = v.pl;
+      f.properties.ap2 = v.aptos;
+      f.properties.vr = v.vr ?? 0;
+    } else {
+      for (const k of ['m1', 'm2', 'sw2', 'pt2', 'pl2', 'ap2', 'vr']) delete f.properties[k];
+    }
+  }
+}
+
+async function prepararT2() {
+  const t = await garantirT2();
+  if (S.geoUf) {
+    const porCodigo = new Map(
+      S.br.ufs.map((u) => [String(u.cd_uf_ibge), t.bruto.ufs[u.uf] ? regiaoT2(t.bruto.ufs[u.uf]) : null])
+    );
+    injetarT2(S.geoUf, 'cd_uf_ibge', (id) => {
+      const r = porCodigo.get(id);
+      return r ? { m1: r.m1, m2: r.m2, sw: r.sw, pt: r.pt, pl: r.pl, aptos: r.aptos, vr: 0 } : null;
+    });
+    recarregarFonte(FONTES.uf, S.geoUf);
+  }
+  if (S.uf) {
+    const mapa = await mapaT2(S.uf);
+    const geo = S.geoMunUf.get(S.uf);
+    if (geo) {
+      injetarT2(geo, 'cd_mun_ibge', (id) => mapa.get(id));
+      recarregarFonte(FONTES.munuf, geo);
+    }
+  } else if (S.camadaBr === 'mun' && S.geoMunBr) {
+    const mapa = await mapaT2('br');
+    injetarT2(S.geoMunBr, 'cd_mun_ibge', (id) => mapa.get(id));
+    recarregarFonte(FONTES.munbr, S.geoMunBr);
+  }
+  // a camada de contorno lê as cores do t2.json, que só chega agora
+  for (const id of Object.values(FONTES)) {
+    if (map.getLayer(`${id}-virou`)) {
+      const e = t.bruto.escala_virada;
+      map.setPaintProperty(`${id}-virou`, 'line-color', [
+        'case', ['==', ['get', 'vr'], -1], e.contorno_pl, e.contorno_pt,
+      ]);
+    }
+  }
+}
+
 /** Prepara as properties de que o modo de cor atual precisa. */
 async function prepararDadosDoModo() {
   if (S.candidato) await prepararPctDoCandidato();
   else if (S.modo === 'swing') await prepararSwing();
+  else if (S.modo === 't2' || S.modo === 'virada') await prepararT2();
 }
 
 function swingDoMunicipio(ibge) {
@@ -951,6 +1108,15 @@ function corDeRegiao(reg) {
     e.valores.forEach((x, i) => { if (Math.abs(x - v.dm) < Math.abs(e.valores[melhor] - v.dm)) melhor = i; });
     return e.cores[melhor];
   }
+  if (m === 't2' || m === 'virada') {
+    const v = reg.cd_mun_ibge ? t2DoMunicipio(reg.cd_mun_ibge) : null;
+    if (!v || !S.t2) return '#dddddd';
+    const e = m === 't2' ? S.t2.bruto.escala_t2 : S.t2.bruto.escala_virada;
+    const x = m === 't2' ? v.m2 : v.sw;
+    let melhor = 0;
+    e.valores.forEach((y, i) => { if (Math.abs(y - x) < Math.abs(e.valores[melhor] - x)) melhor = i; });
+    return e.cores[melhor];
+  }
   if (m === 'venceu') {
     return reg.vencedor === S.candidato ? reg.cor_margem : S.meta.cor_nao_venceu;
   }
@@ -1106,6 +1272,50 @@ function blocoSwing(reg, nivel) {
   );
 }
 
+const NOTA_MARGEM =
+  'Margem = (PT − PL) em % dos votos dos dois finalistas, nos dois turnos; swing = margem do 2º ' +
+  'turno menos a do 1º. Pode diferir de números que usem % dos válidos.';
+
+function regiaoT2Painel(reg, nivel) {
+  if (!S.t2) return null;
+  if (nivel === 'br') return regiaoT2(S.t2.bruto.br);
+  if (nivel === 'uf') return S.t2.bruto.ufs[S.uf] ? regiaoT2(S.t2.bruto.ufs[S.uf]) : null;
+  return t2DoMunicipio(reg.cd_mun_ibge);
+}
+
+function blocoT2(reg, nivel) {
+  const v = regiaoT2Painel(reg, nivel);
+  const linha = (rot, valor) => `<div><dt>${rot}</dt><dd>${valor}</dd></div>`;
+  const modo = S.modo;
+  let corpo = '<p class="dica">Carregando…</p>';
+  if (v) {
+    const lado = v.m2 > 0 ? 'Lula' : v.m2 < 0 ? 'Flávio Bolsonaro' : 'empate';
+    const viraram =
+      nivel === 'mun'
+        ? v.vr === 1 ? 'virou para o PT' : v.vr === -1 ? 'virou para o PL' : 'não mudou de lado'
+        : `${num(v.virou_pt)} para o PT · ${num(v.virou_pl)} para o PL`;
+    corpo =
+      '<dl class="metricas">' +
+      (modo === 't2'
+        ? linha('Lula (2º turno)', `${num(v.pt)} votos`) +
+          linha('Flávio Bolsonaro (2º turno)', `${num(v.pl)} votos`) +
+          linha('Margem entre os finalistas', `${lado}${v.m2 === 0 ? '' : ` por ${pct(Math.abs(v.m2), 1)}`}`)
+        : linha('Margem PT − PL, 1º turno', sinalPp(v.m1, 1)) +
+          linha('Margem PT − PL, 2º turno', sinalPp(v.m2, 1)) +
+          linha('Swing (2º − 1º turno)', sinalPp(v.sw, 1)) +
+          linha(nivel === 'mun' ? 'Mudança de lado' : 'Municípios que mudaram de lado', viraram)) +
+      linha('Eleitores aptos (2º turno)', num(v.aptos)) +
+      '</dl>';
+  }
+  return (
+    '<div class="secao cand-bloco">' +
+    `<h3>${modo === 't2' ? '2º turno 2026' : 'Virada: 1º → 2º turno'}</h3>` +
+    corpo +
+    `<p class="dica">${NOTA_MARGEM}${nivel === 'mun' ? '' : ' Brasil sem o exterior.'}</p>` +
+    '</div>'
+  );
+}
+
 function pintarPainel(reg, nivel) {
   const tot = reg.totais;
   const st = rotuloTotalizacao(tot);
@@ -1114,13 +1324,13 @@ function pintarPainel(reg, nivel) {
       ? `${titulo(S.ufs.get(S.uf).uf.nome)} · município · TSE ${reg.cd_mun_tse} · IBGE ${reg.cd_mun_ibge}`
       : nivel === 'uf'
         ? `Unidade federativa · ${num(S.meta.ufs.find((u) => u.sigla === S.uf)?.n_municipios)} municípios`
-        : 'Presidente · 1º turno · 04/10/2026';
+        : modoT2() ? 'Presidente · 2º turno (25/10/2026) e comparação com o 1º' : 'Presidente · 1º turno · 04/10/2026';
 
   let html =
     '<div class="p-cabeca">' +
     `<h2>${titulo(reg.nome)}</h2>` +
     `<div class="onde">${onde}</div>` +
-    `<span class="selo ${st.classe}">Totalização: ${st.texto}</span>` +
+    `<span class="selo ${st.classe}">Totalização${modoT2() ? ' do 1º turno' : ''}: ${st.texto}</span>` +
     (tot.matematicamente_definido === 's'
       ? '<span class="selo">2º turno matematicamente definido</span>'
       : '') +
@@ -1128,9 +1338,11 @@ function pintarPainel(reg, nivel) {
 
   if (S.candidato) html += blocoCandidato(reg, nivel);
   else if (S.modo === 'swing') html += blocoSwing(reg, nivel);
+  else if (S.modo === 't2' || S.modo === 'virada') html += blocoT2(reg, nivel);
 
-  html += `<div class="secao"><h3>Votos válidos por candidato</h3>${barras(reg)}</div>`;
-  html += `<div class="secao"><h3>Comparecimento e votos</h3>${metricas(tot)}</div>`;
+  const t1 = !S.candidato && (S.modo === 't2' || S.modo === 'virada') ? ' (1º turno)' : '';
+  html += `<div class="secao"><h3>Votos válidos por candidato${t1}</h3>${barras(reg)}</div>`;
+  html += `<div class="secao"><h3>Comparecimento e votos${t1}</h3>${metricas(tot)}</div>`;
 
   if (nivel === 'br') html += cartaoExterior();
   if (nivel === 'uf') html += listaMunicipios(S.ufs.get(S.uf));
@@ -1249,7 +1461,50 @@ function legendaSwing() {
   );
 }
 
+function legendaT2() {
+  const e = S.t2 ? S.t2.bruto.escala_t2 : null;
+  if (!e) return '<p class="nota">Carregando…</p>';
+  const fr = (n) => Array.from({ length: n }, (_, i) => i / (n - 1));
+  return (
+    '<h3>2º turno: margem entre os finalistas</h3>' +
+    `<div class="rampa-dupla"><span class="barra" style="background:${gradiente(e.cores, fr(e.cores.length))}"></span></div>` +
+    `<div class="escala ticks"><span>${sinalPp(-e.limite_pp, 0)} ou mais</span><span>0</span>` +
+    `<span>${sinalPp(e.limite_pp, 0)} ou mais</span></div>` +
+    '<div class="escala"><span>Flávio Bolsonaro</span><span>Lula</span></div>' +
+    `<p class="nota-metodo">Margem entre os dois finalistas (não % dos válidos). Satura em ±${num(e.limite_pp)} p.p.</p>` +
+    `<p class="nota">${NOTA_MARGEM} A escala satura em ±${num(e.limite_pp)} p.p.</p>`
+  );
+}
+
+function legendaVirada() {
+  const e = S.t2 ? S.t2.bruto.escala_virada : null;
+  if (!e) return '<p class="nota">Carregando…</p>';
+  const fr = (n) => Array.from({ length: n }, (_, i) => i / (n - 1));
+  const pl = e.virou_pl[0];
+  return (
+    '<h3>Virada: swing do 1º para o 2º turno</h3>' +
+    `<div class="rampa-dupla"><span class="barra" style="background:${gradiente(e.cores, fr(e.cores.length))}"></span></div>` +
+    `<div class="escala ticks"><span>${sinalPp(-e.limite_pp, 0)} ou menos</span><span>0</span>` +
+    `<span>${sinalPp(e.limite_pp, 0)} ou mais</span></div>` +
+    '<div class="escala"><span>para o PL</span><span>para o PT</span></div>' +
+    '<div class="sw-contornos">' +
+    `<div class="sw"><i style="background:#fff;border:2px solid ${e.contorno_pt}"></i><span>virou para o PT</span></div>` +
+    `<div class="sw"><i style="background:#fff;border:3px solid ${e.contorno_pl}"></i><span>virou para o PL</span></div>` +
+    '</div>' +
+    (pl
+      ? `<p class="nota"><button type="button" class="link-btn" data-virou-pl="${pl.ibge}" data-uf="${pl.uf}">` +
+        `Único município que virou para o PL: ${titulo(pl.nome)}/${pl.uf.toUpperCase()} (ver no mapa)</button></p>`
+      : '') +
+    `<p class="nota-metodo">Margem entre os dois finalistas (não % dos válidos). Escala truncada em ±${num(e.limite_pp)} p.p.; ` +
+    'município pequeno oscila: veja os aptos no balão.</p>' +
+    `<p class="nota"><b>Escala truncada em ±${num(e.limite_pp)} p.p.</b> (${num(e.n_alem_escala)} de ` +
+    `${num(e.n_total)} municípios passam disso). Município pequeno oscila muito por acaso: veja os ` +
+    `eleitores aptos no balão antes de ler padrão numa cor. ${NOTA_MARGEM}</p>`
+  );
+}
+
 function desenharLegenda() {
+  rotularTurno();
   const el = $('#legenda');
   if (S.candidato) {
     el.innerHTML = legendaCandidato();
@@ -1257,6 +1512,17 @@ function desenharLegenda() {
   }
   if (S.modo === 'swing') {
     el.innerHTML = legendaSwing();
+    return;
+  }
+  if (S.modo === 't2' || S.modo === 'virada') {
+    el.innerHTML = S.modo === 't2' ? legendaT2() : legendaVirada();
+    const b = el.querySelector('[data-virou-pl]');
+    if (b) {
+      b.addEventListener('click', async () => {
+        await irParaUf(b.dataset.uf);
+        await selecionarMunicipio(b.dataset.virouPl, false);
+      });
+    }
     return;
   }
   if (S.modo === 'mistura') {
@@ -1567,7 +1833,7 @@ async function aplicarUrl() {
 
     const modo = p.get('modo');
     if (modo === 'venceu' || modo === 'forca') S.modoCand = modo;
-    else if (modo === 'mistura' || modo === 'margem' || modo === 'swing') S.modo = modo;
+    else if (['mistura', 'margem', 'swing', 't2', 'virada'].includes(modo)) S.modo = modo;
 
     if (S.candidato) await garantirResumo();
 
