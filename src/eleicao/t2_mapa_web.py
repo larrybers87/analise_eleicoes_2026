@@ -59,6 +59,14 @@ def _regiao(g: pd.DataFrame) -> list[float]:
     ]
 
 
+def _oficial(o: dict[str, float] | None) -> dict[str, Any] | None:
+    """Total oficial do 2º turno (COM exterior), para o painel nacional: pt, pl, aptos."""
+    if o is None:
+        return None
+    margem = 100 * (o["pt"] - o["pl"]) / (o["pt"] + o["pl"])
+    return {"pt": int(o["pt"]), "pl": int(o["pl"]), "aptos": int(o["aptos"]), "m2": _r(margem)}
+
+
 def _escala(limite: float, cor_pl: str, cor_pt: str) -> dict[str, Any]:
     e = escala_divergente_assimetrica(-limite, limite, cor_pl, cor_pt)
     return {
@@ -71,7 +79,11 @@ def _escala(limite: float, cor_pl: str, cor_pt: str) -> dict[str, Any]:
 
 
 def montar(
-    d: pd.DataFrame, offsets_meta: dict[str, int], n_meta: int, cor_sem_dado: str
+    d: pd.DataFrame,
+    offsets_meta: dict[str, int],
+    n_meta: int,
+    cor_sem_dado: str,
+    oficial: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     """`d` = `virada.virada_municipal` (já sem exterior). Confere ordem e offsets com o meta."""
     paleta = carregar_paleta()
@@ -106,6 +118,7 @@ def montar(
         "vr": vr.tolist(),
         "formato_regiao": CAMPOS_REGIAO,
         "br": _regiao(d),
+        "oficial": _oficial(oficial),
         "ufs": ufs,
         "escala_t2": {**_escala(LIMITE_RESULTADO_PP, cor_pl, cor_pt), "cor_sem_dado": cor_sem_dado},
         "escala_virada": {

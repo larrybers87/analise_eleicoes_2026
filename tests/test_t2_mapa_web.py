@@ -82,3 +82,23 @@ def test_json_publicado_tem_escalas_prontas() -> None:
     assert d["escala_virada"]["limite_pp"] == 10.0
     assert len(d["escala_virada"]["valores"]) == len(d["escala_virada"]["cores"])
     assert d["escala_virada"]["n_alem_escala"] < d["escala_virada"]["n_total"] * 0.05
+
+
+def test_total_oficial_entra_so_quando_informado() -> None:
+    sem = t2_mapa_web.montar(_mini(), {"ac": 0, "mg": 2}, 3, "#ddd")
+    assert sem["oficial"] is None
+    com = t2_mapa_web.montar(
+        _mini(), {"ac": 0, "mg": 2}, 3, "#ddd", {"pt": 600.0, "pl": 400.0, "aptos": 2000.0}
+    )
+    assert com["oficial"] == {"pt": 600, "pl": 400, "aptos": 2000, "m2": 20.0}
+
+
+@pytest.mark.skipif(not T2.exists(), reason="rode scripts/exportar_web_t2.py")
+def test_json_publicado_tem_o_total_oficial_com_exterior() -> None:
+    d = json.loads(T2.read_text(encoding="utf-8"))
+    cand = pd.read_parquet(config.DATA_PROCESSED / "presidente_t2_br.parquet")
+    votos = cand.set_index(cand["nr_candidato"].astype(int))["votos"]
+    assert d["oficial"]["pt"] == votos[13]
+    assert d["oficial"]["pl"] == votos[22]
+    # o painel mostra os dois: o oficial inclui o exterior, o do mapa não
+    assert d["oficial"]["pt"] > d["br"][d["formato_regiao"].index("pt_t2")]

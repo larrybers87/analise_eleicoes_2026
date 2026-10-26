@@ -1298,6 +1298,7 @@ function regiaoT2Painel(reg, nivel) {
 
 function blocoT2(reg, nivel) {
   const v = regiaoT2Painel(reg, nivel);
+  const of = nivel === 'br' && S.t2 ? S.t2.bruto.oficial : null; // total oficial, COM exterior
   const linha = (rot, valor) => `<div><dt>${rot}</dt><dd>${valor}</dd></div>`;
   const modo = S.modo;
   let corpo = '<p class="dica">Carregando…</p>';
@@ -1310,21 +1311,28 @@ function blocoT2(reg, nivel) {
     corpo =
       '<dl class="metricas">' +
       (modo === 't2'
-        ? linha('Lula (2º turno)', `${num(v.pt)} votos`) +
-          linha('Flávio Bolsonaro (2º turno)', `${num(v.pl)} votos`) +
-          linha('Margem entre os finalistas', `${lado}${v.m2 === 0 ? '' : ` por ${ppAbs(v.m2)}`}`)
+        ? of
+          ? linha('Lula (2º turno, total oficial)', `${num(of.pt)} votos`) +
+            linha('Flávio Bolsonaro (2º turno, total oficial)', `${num(of.pl)} votos`) +
+            linha('Margem entre os finalistas (total oficial)', `${of.m2 > 0 ? 'Lula' : 'Flávio Bolsonaro'} por ${ppAbs(of.m2)}`) +
+            linha('Eleitores aptos (total oficial)', num(of.aptos)) +
+            linha('Brasil sem exterior (usado no mapa)', `Lula ${num(v.pt)} · Flávio ${num(v.pl)}`)
+          : linha('Lula (2º turno)', `${num(v.pt)} votos`) +
+            linha('Flávio Bolsonaro (2º turno)', `${num(v.pl)} votos`) +
+            linha('Margem entre os finalistas', `${lado}${v.m2 === 0 ? '' : ` por ${ppAbs(v.m2)}`}`)
         : linha('Margem PT − PL, 1º turno', sinalPp(v.m1, 1)) +
           linha('Margem PT − PL, 2º turno', sinalPp(v.m2, 1)) +
           linha('Swing (2º − 1º turno)', sinalPp(v.sw, 1)) +
           linha(nivel === 'mun' ? 'Mudança de lado' : 'Municípios que mudaram de lado', viraram)) +
-      linha('Eleitores aptos (2º turno)', num(v.aptos)) +
+      (modo === 't2' && of ? '' : linha(nivel === 'br' ? 'Eleitores aptos (2º turno, Brasil sem exterior)' : 'Eleitores aptos (2º turno)', num(v.aptos))) +
       '</dl>';
   }
   return (
     '<div class="secao cand-bloco">' +
     `<h3>${modo === 't2' ? '2º turno 2026' : 'Virada: 1º → 2º turno'}</h3>` +
     corpo +
-    `<p class="dica">${modo === 't2' ? NOTA_MARGEM_T2 : NOTA_MARGEM}${nivel === 'mun' ? '' : ' Brasil sem o exterior.'}</p>` +
+    `<p class="dica">${modo === 't2' ? NOTA_MARGEM_T2 : NOTA_MARGEM}` +
+    `${nivel === 'mun' ? '' : modo === 't2' && of ? ' Os totais acima incluem o exterior; o mapa e os recortes por UF e município são do Brasil sem o exterior.' : ' Brasil sem o exterior.'}</p>` +
     '</div>'
   );
 }
