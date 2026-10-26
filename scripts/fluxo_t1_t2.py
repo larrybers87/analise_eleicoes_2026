@@ -28,20 +28,21 @@ from eleicao.analise import fluxo  # noqa: E402
 
 
 def montar(proc: Path):
+    """(origens, municípios, x, y, w) via `fluxo.montar_t1_t2` (mesma lógica do notebook 18)."""
     cfg = pj.carregar_config_projecao(RAIZ / "config" / "projecao_t2.yaml")
     ins = pj.carregar_insumos(proc)
-    g26 = ie.grupos_t1_2026(cfg, "base")
-    c1 = pj.contagens_2026(ins, g26)
-    obs = carregar_t2(proc, "presidente_t2")
-    c1 = c1[c1["uf"] != "zz"].reset_index(drop=True)
-    o = obs[obs["uf"] != "zz"].reset_index(drop=True)
-    par, sem = ie.parear_chaves(c1[ie.CHAVE], o[ie.CHAVE], "t1", "t2")
-    print(f"chaves sem par T1/T2 (fora do ajuste): {len(sem)}")
-    c1, o = c1.merge(par, on=ie.CHAVE), o.merge(par, on=ie.CHAVE)
-    origens = [*g26, pj.CAT_BN, pj.CAT_ABST]
-    x, w = ie.parcelas(c1, origens)
-    y, _ = ie.parcelas(o, ie.COLS_T2)
-    return origens, c1, o, x, y, w
+    c_t1, t_t1 = ins["t1_2026"]
+    obs = carregar_t2(proc, "presidente_t2")  # confere o status final do T2 e candidatos extras
+    del obs
+    return fluxo.montar_t1_t2(
+        c_t1,
+        t_t1,
+        pd.read_parquet(proc / "presidente_t2_municipio.parquet"),
+        pd.read_parquet(proc / "presidente_t2_municipio_totais.parquet"),
+        ie.grupos_t1_2026(cfg, "base"),
+        pj.CAT_BN,
+        pj.CAT_ABST,
+    )
 
 
 def main() -> None:
@@ -54,7 +55,7 @@ def main() -> None:
     saida.mkdir(parents=True, exist_ok=True)
     pd.set_option("display.width", 220)
 
-    origens, c1, o, x, y, w = montar(proc)
+    origens, c1, x, y, w = montar(proc)
     cfg = pj.carregar_config_projecao(RAIZ / "config" / "projecao_t2.yaml")
     ins = pj.carregar_insumos(proc)
     uf = c1["uf"].to_numpy()

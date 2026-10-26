@@ -119,3 +119,5 @@ Margem = (PT − PL) / (PT + PL), nos dois turnos, Brasil sem exterior (com os v
 - **Porte**: o swing cresce com o tamanho (+3,7 p.p. nos de até 10 mil eleitores; +7,0 nos de 100 a 500 mil; +6,4 nos acima de 500 mil), e a abstenção caiu mais nas grandes cidades (−2,4 p.p. contra −1,1).
 - **Minas Gerais** (única UF que trocou de lado, de −5,4 para +0,9; 76 dos 211 municípios que viraram, ganho líquido de 697.925 votos de margem): o swing variou entre as mesorregiões, de +2,6 p.p. no Jequitinhonha e +3,8 no Norte de Minas e no Mucuri a +7,2 a +7,8 no Sul/Sudoeste, Oeste, Noroeste, Triângulo e Central. A RMBH andou +6,9, com 34,8% do ganho de margem para 31,9% do eleitorado (proporcional). Descrição da distribuição, sem inferência de causa. Mesorregiões = divisão do IBGE de 2018.
 - Ressalvas: dados agregados (ecológicos); mesorregião de MG pela divisão do IBGE de 2018 (geobr).
+
+Reprodução: `notebooks/18_virada_2o_turno.ipynb` (a partir dos Parquet de `data/processed/`; o fluxo usa 300 reamostras por UF, o relatório do site usou 1.000).

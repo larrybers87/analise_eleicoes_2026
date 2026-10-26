@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -55,3 +56,27 @@ def test_troca_de_lado_e_resumo() -> None:
 def test_faixa_porte_limites() -> None:
     f = virada.faixa_porte(pd.Series([3_000.0, 5_000.0, 5_001.0, 600_000.0]))
     assert f.tolist() == ["até 5 mil", "até 5 mil", "5–10 mil", "mais de 500 mil"]
+
+
+def test_regressao_swing_recupera_inclinacao_dentro_da_uf() -> None:
+    """swing(logit) = efeito da UF + b * logit(PT no T1): a inclinação volta, com R² ~ 1."""
+    rng = np.random.default_rng(0)
+    linhas = []
+    for uf, efeito in (("ac", 0.30), ("mg", 0.10), ("ba", -0.05)):
+        for p1 in rng.uniform(0.2, 0.8, 80):
+            x = np.log(p1 / (1 - p1))
+            p2 = 1 / (1 + np.exp(-(x + efeito - 0.2 * x)))
+            n = 1_000_000
+            linhas.append(
+                {
+                    "uf": uf,
+                    "pt_t1": p1 * n,
+                    "pl_t1": (1 - p1) * n,
+                    "pt_t2": p2 * n,
+                    "pl_t2": (1 - p2) * n,
+                }
+            )
+    r = virada.regressao_swing(pd.DataFrame(linhas))
+    assert r["inclinacao_dentro_da_uf"] == pytest.approx(-0.2, abs=1e-6)
+    assert r["r2_ponderado"] == pytest.approx(1.0, abs=1e-9)
+    assert r["n"] == 240

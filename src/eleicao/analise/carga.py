@@ -31,6 +31,30 @@ def candidatos_2026() -> pd.DataFrame:
     return df
 
 
+def totais_t2_2026() -> pd.DataFrame:
+    """2º turno 2026, 1 linha por município (5.571 BR + exterior `zz`)."""
+    df = _ler("presidente_t2_municipio_totais.parquet")
+    df["cd_mun_tse"] = df["cd_mun_tse"].astype(str)
+    return df
+
+
+def candidatos_t2_2026() -> pd.DataFrame:
+    """2º turno 2026, município × candidato (PT 13 e PL 22)."""
+    df = _ler("presidente_t2_municipio.parquet")
+    df["cd_mun_tse"] = df["cd_mun_tse"].astype(str)
+    return df
+
+
+def candidatos_t2_2026_br() -> pd.DataFrame:
+    """2º turno 2026, arquivo oficial do Brasil (COM exterior), 1 linha por candidato."""
+    return _ler("presidente_t2_br.parquet")
+
+
+def totais_t2_2026_br() -> pd.DataFrame:
+    """2º turno 2026, totais oficiais do Brasil (COM exterior), 1 linha."""
+    return _ler("presidente_t2_br_totais.parquet")
+
+
 def totais_2022(turno: int) -> pd.DataFrame:
     """Totais 2022 por município (turno 1 ou 2); 5.751 linhas incl. exterior."""
     if turno not in (1, 2):

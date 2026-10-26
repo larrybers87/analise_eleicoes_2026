@@ -15,17 +15,12 @@ import pandas as pd
 RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ / "src"))
 
-from eleicao import config  # noqa: E402
 from eleicao.analise import carga, virada  # noqa: E402
 
 
 def main() -> None:
-    proc = config.DATA_PROCESSED
     t1 = virada.base_turno(carga.candidatos_2026(), carga.totais_2026())
-    t2 = virada.base_turno(
-        pd.read_parquet(proc / "presidente_t2_municipio.parquet"),
-        pd.read_parquet(proc / "presidente_t2_municipio_totais.parquet"),
-    )
+    t2 = virada.base_turno(carga.candidatos_t2_2026(), carga.totais_t2_2026())
     d = virada.virada_municipal(t1, t2)
     saida = RAIZ / "data" / "interim" / "virada"
     saida.mkdir(parents=True, exist_ok=True)

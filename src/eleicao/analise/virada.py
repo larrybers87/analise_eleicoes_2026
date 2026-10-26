@@ -9,6 +9,7 @@ lado. Swing = margem do T2 − margem do T1 (positivo = andou para o PT). Brasil
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 NR_PL, NR_PT = 22, 13
@@ -67,6 +68,47 @@ def resumo_grupo(d: pd.DataFrame, por: str) -> pd.DataFrame:
         )
 
     return d.groupby(por).apply(f, include_groups=False).reset_index()
+
+
+def _logit(p: pd.Series) -> pd.Series:
+    return np.log(p / (1 - p))
+
+
+def swing_logit(d: pd.DataFrame) -> pd.DataFrame:
+    """Municípios com PT entre os finalistas estritamente entre 0 e 1 nos dois turnos, com
+    `x` = logit do PT no T1 e `sl` = logit do PT no T2 − logit do PT no T1."""
+    p1 = d["pt_t1"] / (d["pt_t1"] + d["pl_t1"])
+    p2 = d["pt_t2"] / (d["pt_t2"] + d["pl_t2"])
+    ok = (p1 > 0) & (p1 < 1) & (p2 > 0) & (p2 < 1)
+    out = d[ok].copy()
+    out["x"] = _logit(p1[ok])
+    out["sl"] = _logit(p2[ok]) - out["x"]
+    return out
+
+
+def regressao_swing(d: pd.DataFrame) -> dict[str, float]:
+    """Padrão descritivo: swing (logit) sobre a força do PT no T1 (logit).
+
+    Devolve a correlação municipal simples e, com efeito fixo de UF e peso = votos dos
+    finalistas no T2, a inclinação dentro da UF e o R² ponderado do modelo completo.
+    Não é explicação causal: a regressão à média e a agregação ecológica contam.
+    """
+    s = swing_logit(d)
+    w = (s["pt_t2"] + s["pl_t2"]).to_numpy(float)
+    X = pd.get_dummies(s["uf"], dtype=float)
+    X["x"] = s["x"].to_numpy()
+    y = s["sl"].to_numpy()
+    raiz = np.sqrt(w)
+    beta = np.linalg.lstsq(X.to_numpy() * raiz[:, None], y * raiz, rcond=None)[0]
+    res = y - X.to_numpy() @ beta
+    media = np.average(y, weights=w)
+    r2 = 1 - np.average(res**2, weights=w) / np.average((y - media) ** 2, weights=w)
+    return {
+        "n": float(len(s)),
+        "correlacao": float(np.corrcoef(s["x"], s["sl"])[0, 1]),
+        "inclinacao_dentro_da_uf": float(beta[-1]),
+        "r2_ponderado": float(r2),
+    }
 
 
 FAIXAS_PORTE = (

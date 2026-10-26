@@ -20,6 +20,36 @@ import pandas as pd
 from eleicao import inferencia_ecologica as ie
 
 
+def montar_t1_t2(
+    cand_t1: pd.DataFrame,
+    tot_t1: pd.DataFrame,
+    cand_t2: pd.DataFrame,
+    tot_t2: pd.DataFrame,
+    grupos_t1: dict[str, list[int]],
+    cat_bn: str,
+    cat_abst: str,
+) -> tuple[list[str], pd.DataFrame, np.ndarray, np.ndarray, np.ndarray]:
+    """(origens, municípios, x, y, w) do Brasil sem exterior, pareados T1×T2.
+
+    Origens = grupos do T1 + brancos/nulos + abstenção; destinos = `ie.COLS_T2`.
+    Levanta ValueError se algum município não tiver par (nada some em silêncio).
+    """
+    c1 = ie.montar_contagens(cand_t1, tot_t1, grupos_t1).rename(
+        columns={"bn": cat_bn, "abst": cat_abst}
+    )
+    obs = ie.contagens_t2(cand_t2, tot_t2, pl=22, pt=13)
+    c1 = c1[c1["uf"] != "zz"].sort_values(ie.CHAVE).reset_index(drop=True)
+    obs = obs[obs["uf"] != "zz"].sort_values(ie.CHAVE).reset_index(drop=True)
+    par, sem = ie.parear_chaves(c1[ie.CHAVE], obs[ie.CHAVE], "t1", "t2")
+    if not sem.empty:
+        raise ValueError(f"{len(sem)} municípios sem par entre T1 e T2")
+    c1, obs = c1.merge(par, on=ie.CHAVE), obs.merge(par, on=ie.CHAVE)
+    origens = [*grupos_t1, cat_bn, cat_abst]
+    x, w = ie.parcelas(c1, origens)
+    y, _ = ie.parcelas(obs, ie.COLS_T2)
+    return origens, c1, x, y, w
+
+
 def limites_duncan_davis(
     x: np.ndarray, y: np.ndarray, w: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray]:
