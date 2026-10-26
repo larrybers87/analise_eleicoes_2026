@@ -1,6 +1,6 @@
 # STATUS
 
-Última atualização: 2026-10-26 - T2 2026 coletado e processado (6258, final); comparação previsto × real rodada; análise do T2 em andamento.
+Última atualização: 2026-10-26 - T2 2026 coletado; página "2º turno: resultado" no site (mapas por UF, swing, Minas, extensão do horário); "Previsto × real" na aba de projeção.
 
 ## Feito
 - **F0 (setup)**: estrutura de pastas, `CLAUDE.md`, docs, `.gitignore`, `environment.yml`, `pyproject.toml`; `.claude/` com agentes `coletor-tse`/`analista-eleitoral` e skills `fechar-sessao`/`tse-dados`; repo no GitHub; ambiente `eleicao2026`.
@@ -37,7 +37,7 @@
 - **Ambiente**: `ruff check .` e `ruff format --check .` verdes. Notebooks de análise com ignores só de formato (`pyproject.toml`, `per-file-ignores`); erros reais continuam valendo.
 
 ## Em andamento
-- **T2 2026 (26/10/2026)**: coleta 6258 completa (5.786 arquivos, 0 erro), `presidente_t2_{municipio,uf,br}{,_totais}.parquet` gerados (`processar_presidente.py --eleicao 6258`, agora com turno no nome). BR final (`and=f`, `tf=s`, 23:26:38 de 25/10): Lula 64.256.232 (51,79%) × Flávio 59.826.041 (48,21%); abstenção 19,22%; 41 seções não totalizadas. `comparar_projecao_t2.py` rodado: cenário base errou +3,69 p.p. a favor do PL (fora da faixa de ±2); saídas em `data/interim/projecao_t2/comparacao_*`. Feito também: fluxo T1→T2 blindado (`scripts/fluxo_t1_t2.py`, D-038) e bloco "Previsto × real" em `web/projecao.html` (`--publicar-comparacao-t2`), commitado e publicado (5ba7f33). Swing T1→T2 feito (`scripts/virada_t2.py`, `ANALISES.md`, D-039; "quem votou diferente" não achou atípicos). Falta: notebook da virada, página/modos no mapa do T2 e da virada, cruzamento da extensão do horário (precisa do boletim de urna). `pytest`: 378 passam, `ruff` verde.
+- **T2 2026 (26/10/2026)**: coleta 6258 completa (5.786 arquivos, 0 erro), `presidente_t2_{municipio,uf,br}{,_totais}.parquet` gerados (`processar_presidente.py --eleicao 6258`, agora com turno no nome). BR final (`and=f`, `tf=s`, 23:26:38 de 25/10): Lula 64.256.232 (51,79%) × Flávio 59.826.041 (48,21%); abstenção 19,22%; 41 seções não totalizadas. `comparar_projecao_t2.py` rodado: cenário base errou +3,69 p.p. a favor do PL (fora da faixa de ±2); saídas em `data/interim/projecao_t2/comparacao_*`. Feito também: fluxo T1→T2 blindado (`scripts/fluxo_t1_t2.py`, D-038), "Previsto × real" em `web/projecao.html`, swing T1→T2 (`scripts/virada_t2.py`, D-039) e a página `web/segundo-turno.html` (`scripts/exportar_segundo_turno.py` → `src/eleicao/segundo_turno_web.py`; testes em `tests/test_exportar_segundo_turno_web.py`). Pendente: cruzamento da extensão do horário (precisa de dados por seção com horário; o dataset `votacao_secao_2026` do Dados Abertos não confirma o T2), notebook da virada, resultado por município no mapa principal (modos T2 e swing T1→T2), prints novos em `capturar_prints.py`.
 
 ## Próximo (em ordem)
 0. **Após 26/10 (totalização do T2)**: coletar o T2 2026 (eleição 6258) com o coletor-tse, gerar os parquet `presidente_t2_*`, rodar `scripts/comparar_projecao_t2.py` e acrescentar "previsto × real" ao bloco 2026 da aba "2º turno: projeção" (campo `comparacao_t2` do JSON), sem alterar a projeção publicada (D-037).

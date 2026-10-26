@@ -689,6 +689,11 @@ main.analises {
   body.pg-analises #subtitulo { display: none; }
 }
 
+@media (max-width: 600px) {
+  body.pg-analises #topo { flex-wrap: wrap; row-gap: 2px; }
+  body.pg-analises .topo-links { flex-wrap: wrap; flex: 1 1 100%; }
+}
+
 /* --------------------------- modo swing (D-030) -------------------------- */
 #legenda .rampa-dupla { display: flex; gap: 0; margin-bottom: 2px; }
 #legenda .rampa-dupla .barra { flex: 1 1 50%; height: 12px; border: 1px solid rgba(0, 0, 0, .12); }

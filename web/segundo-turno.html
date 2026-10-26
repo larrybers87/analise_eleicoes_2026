@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<title>Presidente 2026 — resultado do 2º turno</title>
+<meta name="description" content="O resultado do 2º turno de 2026 por UF, a virada entre os dois turnos (swing) por UF, porte e, em Minas, por mesorregião, e a aritmética da extensão do horário de votação.">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="canonical" href="https://larrybers87.github.io/analise_eleicoes_2026/segundo-turno.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Presidente 2026 · mapa e análises">
+<meta property="og:title" content="Presidente 2026: resultado do 2º turno e a virada entre os turnos">
+<meta property="og:description" content="Resultado oficial por UF, swing do 1º para o 2º turno e a aritmética da extensão do horário de votação.">
+<meta property="og:url" content="https://larrybers87.github.io/analise_eleicoes_2026/segundo-turno.html">
+<meta property="og:image" content="https://larrybers87.github.io/analise_eleicoes_2026/img/og.png">
+<meta property="og:locale" content="pt_BR">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="css/estilo.css">
+</head>
+<!--
+  NENHUM número é digitado nesta página (D-030): cada número é um <span data-s="chave"> ou
+  célula preenchida por js/segundo-turno.js a partir de data/segundo_turno.json, gerado por
+  scripts/exportar_segundo_turno.py. tests/test_exportar_segundo_turno_web.py confere.
+-->
+<body class="pg-analises pg-projecao">
+
+<header id="topo">
+  <div id="titulo">
+    <strong>Presidente 2026</strong><span class="sep">·</span><span id="subtitulo">Resultado do 2º turno</span>
+  </div>
+  <nav class="topo-links" aria-label="Páginas">
+    <a href="index.html">Mapa</a>
+    <a href="analises.html">Análises</a>
+    <a href="segundo-turno.html" class="atual" aria-current="page">2º turno: resultado</a>
+    <a href="projecao.html">2º turno: projeção</a>
+  </nav>
+</header>
+
+<main class="analises">
+
+  <p class="intro">
+    Resultado oficial do 2º turno (totalização final do TSE) e o que mudou em relação ao 1º
+    turno. O resultado por município ainda não está no mapa principal; aqui os recortes são por
+    UF, por porte do município e, em Minas, por mesorregião.
+  </p>
+
+  <section class="achado" id="placar">
+    <h2>O resultado</h2>
+    <div class="placar-bloco">
+      <p class="placar-linha">Lula <span data-s="lula_pct"></span> × Flávio Bolsonaro <span data-s="flavio_pct"></span> dos válidos</p>
+      <p class="placar-linha">Margem de <span data-s="margem_votos"></span> votos</p>
+    </div>
+    <p>
+      Lula teve <span data-s="lula_votos"></span> votos e Flávio Bolsonaro
+      <span data-s="flavio_votos"></span>. A abstenção foi de <span data-s="abst"></span> dos
+      aptos. No 1º turno, Flávio ficou <span data-s="t1_flavio_a_frente"></span> p.p. à frente de
+      Lula nos válidos; no 2º, Lula ganhou por <span data-s="margem_pp"></span> p.p. Entre as UFs,
+      Lula venceu em <span data-s="ufs_pt"></span> e Flávio em <span data-s="ufs_pl"></span>.
+    </p>
+    <p class="fonte-grafico" data-s="exterior"></p>
+  </section>
+
+  <section class="achado" id="mapa-resultado">
+    <h2>Quem venceu em cada UF</h2>
+    <div class="legenda-erro" id="legenda-resultado" aria-hidden="true"></div>
+    <figure class="grafico mapa-erro" id="g-resultado" aria-label="Mapa do Brasil por UF com a margem entre Lula e Flávio Bolsonaro no 2º turno de 2026"></figure>
+    <p class="fonte-grafico">
+      Margem entre os dois finalistas no 2º turno, em pontos percentuais (a escala satura em
+      ±<span data-s="limite_resultado"></span>). Exterior fora do mapa.
+    </p>
+  </section>
+
+  <section class="achado" id="swing">
+    <h2>A virada: swing do 1º para o 2º turno</h2>
+    <p>
+      Swing = margem do 2º turno menos a do 1º, em pontos percentuais; positivo é movimento para
+      o PT. Em todo o país o movimento foi para o PT, de <span data-s="swing_uf_min"></span> a
+      <span data-s="swing_uf_max"></span> entre as UFs; a mediana dos municípios foi
+      <span data-s="swing_mediana"></span>.
+      <span data-s="mun_para_pt"></span> de <span data-s="mun_total"></span> municípios passaram do PL
+      para o PT e <span data-s="mun_para_pl"></span> do PT para o PL (o PT estava à frente em
+      <span data-s="mun_pt_t1"></span> no 1º turno e em <span data-s="mun_pt_t2"></span> no 2º).
+    </p>
+    <p class="nota">
+      <b>Como a margem é medida.</b> Nos dois turnos, a margem é (PT − PL) em % dos votos dos
+      dois finalistas, não em % dos válidos. Com os válidos no denominador do 1º turno, os
+      candidatos que ficaram de fora inflariam mecanicamente a margem do 2º turno nos redutos de
+      cada lado. Por isso estes números podem diferir dos de outras fontes que usem % dos
+      válidos (decisão registrada em <a href="https://github.com/larrybers87/analise_eleicoes_2026/blob/main/docs/DECISOES.md" target="_blank" rel="noopener">docs/DECISOES.md</a>).
+    </p>
+    <div class="legenda-erro" id="legenda-swing" aria-hidden="true"></div>
+    <figure class="grafico mapa-erro" id="g-swing" aria-label="Mapa do Brasil por UF com o swing do 1º para o 2º turno de 2026"></figure>
+    <p class="fonte-grafico">
+      Swing em pontos percentuais da margem entre os finalistas (a escala satura em
+      ±<span data-s="limite_swing"></span>). Exterior fora do mapa.
+    </p>
+    <p class="nota">
+      <b>Padrão descritivo, não explicação.</b> O swing foi maior onde o PT tinha menos votos no
+      1º turno, inclusive dentro de cada UF. Isso não prova que "onde o PL era forte o eleitor
+      mudou mais": parte pode ser regressão à média (margens extremas tendem a se mover mais por
+      ruído) e os dados são agregados por município, não por eleitor. Detalhes em
+      <a href="https://github.com/larrybers87/analise_eleicoes_2026/blob/main/docs/ANALISES.md" target="_blank" rel="noopener">docs/ANALISES.md</a>.
+    </p>
+
+    <h3>Por UF</h3>
+    <div class="tabela-rolagem">
+      <table class="tabela-regioes" id="t-ufs">
+        <thead><tr><th>UF</th><th>Margem 1º turno</th><th>Margem 2º turno</th><th>Swing</th><th>Variação da abstenção</th><th>Municípios que viraram</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <h3>Por porte do município</h3>
+    <p>O swing cresce com o tamanho do município (eleitorado), e a abstenção caiu mais nas maiores cidades.</p>
+    <div class="tabela-rolagem">
+      <table class="tabela-regioes" id="t-porte">
+        <thead><tr><th>Eleitorado</th><th>Municípios</th><th>Swing</th><th>Variação da abstenção</th><th>Viraram</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="achado" id="minas">
+    <h2>Minas Gerais: a única UF que trocou de lado</h2>
+    <p>
+      A margem em Minas foi de <span data-s="mg_t1"></span> no 1º turno para
+      <span data-s="mg_t2"></span> no 2º, e <span data-s="mg_viraram"></span> municípios mineiros
+      passaram do PL para o PT. O swing variou entre as mesorregiões: o ganho foi proporcional
+      na Região Metropolitana de Belo Horizonte e maior no Sul/Sudoeste, Oeste, Noroeste,
+      Triângulo e Central; no Jequitinhonha, Norte de Minas e Mucuri foi menor. É uma descrição
+      da distribuição, sem inferência de causa.
+    </p>
+    <div class="tabela-rolagem">
+      <table class="tabela-regioes" id="t-mg">
+        <thead><tr><th>Mesorregião</th><th>Swing</th><th>Margem 1º → 2º turno</th><th>Parte do ganho do PT</th><th>Parte do eleitorado</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="fonte-grafico">Mesorregiões: divisão do IBGE de 2018 (geobr). Ganho = variação da margem em votos, somada na mesorregião.</p>
+  </section>
+
+  <section class="achado" id="previsto-real">
+    <h2>Previsto × real</h2>
+    <p>
+      A projeção do 2º turno publicada antes da votação e a comparação com o resultado estão na
+      página <a href="projecao.html#projecao-2026">2º turno: projeção</a>.
+    </p>
+  </section>
+
+  <section class="achado" id="extensao">
+    <h2>A extensão do horário de votação</h2>
+    <p>
+      A votação do 2º turno foi estendida até as <span data-s="ext_fim"></span> (horário de
+      Brasília) por liminar do ministro Cristiano Zanin, do STF, assinada logo depois das
+      <span data-s="ext_corte"></span>, a pedido das duas campanhas. As fontes divergem sobre o
+      alcance: alguns veículos a descrevem como válida para todo o país; o TSE e a Câmara dos
+      Deputados a limitam às seções que ainda estavam abertas. Flávio Bolsonaro disse que não
+      reconhece o resultado e que pedirá a anulação do 2º turno.
+    </p>
+    <p>
+      <b>A aritmética.</b> A margem é de <span data-s="margem_votos"></span> votos, e nenhum
+      cenário plausível de votos depois das <span data-s="ext_corte"></span> chega perto disso.
+      Um levantamento do g1 com os logs das urnas, reproduzido por outros veículos, aponta
+      <span data-s="ext_votos_17h"></span> votos registrados depois das
+      <span data-s="ext_corte"></span> (<span data-s="ext_pct_margem"></span> da margem; a margem
+      é <span data-s="ext_razao"></span> vezes maior). Mesmo que todos fossem de Lula e fossem
+      descartados, a margem ainda seria de <span data-s="ext_margem_sem_17h"></span> votos.
+    </p>
+    <p class="nota">
+      <b>Esse número é da imprensa e não foi verificado nos dados deste projeto</b>: os arquivos
+      usados aqui não têm horário por voto. O cruzamento de comparecimento e voto nas seções
+      com fechamento estendido depende de dados por seção e está <b>pendente</b>; quando feito,
+      descreveria diferenças, não decidiria a validade da alegação.
+    </p>
+    <p>
+      Sobre a totalização: <span data-s="ext_nao_instaladas"></span> seções, todas no exterior,
+      ficaram não instaladas, com <span data-s="ext_aptos_nao_instaladas"></span> eleitores aptos
+      no total, sem efeito sobre a margem.
+    </p>
+    <h3>Fontes</h3>
+    <ul id="fontes-extensao"></ul>
+  </section>
+
+  <p class="rodape-pagina">
+    Fonte: <a href="https://resultados.tse.jus.br" target="_blank" rel="noopener">TSE — resultados.tse.jus.br</a>
+    (totalização final do 2º turno). Malha das UFs: IBGE (geobr), simplificada. Código e
+    decisões: <a href="https://github.com/larrybers87/analise_eleicoes_2026/blob/main/docs/DECISOES.md" target="_blank" rel="noopener">docs/DECISOES.md</a>.
+  </p>
+</main>
+
+<footer class="rodape-aviso">
+  <p>
+    <b>Projeto pessoal e não oficial</b>, por Larry Bertoncello. Dados do
+    <a href="https://resultados.tse.jus.br" target="_blank" rel="noopener">TSE</a> e do IBGE. Código e metodologia:
+    <a href="https://github.com/larrybers87/analise_eleicoes_2026" target="_blank" rel="noopener">repositório no GitHub</a>.
+  </p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+<script src="js/segundo-turno.js"></script>
+</body>
+</html>
