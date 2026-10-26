@@ -272,3 +272,6 @@ Alternativas: manter a projeção oculta até o resultado (D-035 item 5, reverti
 5. **Aba**: `comparacao_t2` preenchido com `--publicar-comparacao-t2` (exige `--publicar-projecao-2026`; lê o T2 apurado e `data/interim/fluxo_t1_t2/`). A projeção publicada não foi tocada. Texto do cenário mais próximo deixa explícito que o base foi escolhido antes do resultado. Testes em `tests/test_comparacao_web.py`.
 6. **Seções sem totalização (41)**: todas não instaladas e no exterior, 423 eleitores aptos no total. Irrelevantes para a margem de 4.430.191 votos.
 Alternativas: publicar a matriz com IC por município (rejeitada: dá falsa precisão); omitir o erro da projeção (rejeitada: a escolha de mostrar ao lado foi do autor).
+
+## D-039 · 2026-10-26 · Swing T1→T2: margem entre os dois finalistas nos dois turnos
+O swing do T1→T2 usa (PT − PL)/(PT + PL) em ambos os turnos. Com os válidos no denominador do T1 (como no swing 2022→2026, D-023), os terceiros (~7% dos válidos) inflam a margem do T2 nos redutos de cada lado e a leitura de Minas muda (uniforme × gradiente norte-sul). Checado também em logit. Mesorregiões de MG: geobr year=2018 (`carga.mesorregiao_por_municipio`). Alternativa rejeitada: margem sobre válidos (artefato mecânico).

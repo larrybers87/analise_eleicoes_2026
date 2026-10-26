@@ -83,3 +83,22 @@ def geometria_municipios_2024(crs: str = "EPSG:4674") -> pd.DataFrame:
     gdf["cd_mun_ibge"] = gdf["cd_mun_ibge"].astype("int64").astype(str)
     gdf["geometry"] = gdf.geometry.make_valid()
     return gdf[["cd_mun_ibge", "name_muni", "abbrev_state", "geometry"]].to_crs(crs)
+
+
+def mesorregiao_por_municipio(uf: str = "MG") -> dict[int, str]:
+    """{código IBGE de 7 dígitos: nome da mesorregião} de uma UF (geobr, year=2018).
+
+    O ano 2018 é o mais recente do geobr que tem mesorregião (a divisão foi extinta pelo
+    IBGE em 2017, então a de 2018 é a oficial histórica). Junção por ponto representativo do
+    município dentro do polígono da mesorregião.
+    """
+    import geobr  # import tardio: só quando necessário
+    import geopandas as gpd
+
+    meso = geobr.read_meso_region(code_meso=uf, year=2018)
+    mun = geobr.read_municipality(code_muni=uf, year=2018)
+    pontos = gpd.GeoDataFrame(
+        mun[["code_muni"]], geometry=mun.geometry.representative_point(), crs=mun.crs
+    )
+    j = gpd.sjoin(pontos, meso[["name_meso", "geometry"]], predicate="within")
+    return dict(zip(j["code_muni"].astype(int), j["name_meso"], strict=True))

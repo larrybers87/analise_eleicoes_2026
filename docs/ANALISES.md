@@ -111,3 +111,11 @@ Limitações que valem para todo o texto: o texto nasceu do snapshot parcial de 
 
 ## F5a - Projeção do 2º turno (08/10/2026)
 Não é um achado de análise exploratória: é um modelo de projeção por inferência ecológica, com método, premissas e backtest em `docs/METODO_PROJECAO.md` e decisões D-033 e D-034. Resultados: seção 7 do documento e aba "2º turno: projeção" do site (D-037).
+
+## T2 2026: a virada (26/10/2026, `scripts/virada_t2.py`, `src/eleicao/analise/virada.py`)
+Margem = (PT − PL) / (PT + PL), nos dois turnos, Brasil sem exterior (com os válidos no denominador do T1, os terceiros inflavam a margem do T2 nos redutos de cada lado; testado em `tests/test_analise_virada.py`).
+- **Andou para o PT em todo o país.** O swing por UF vai de +2,4 p.p. (PI) a +8,5 p.p. (RJ); mediana municipal +4,7 p.p. 211 municípios passaram do PL para o PT e 1 do PT para o PL (Uirapuru/GO). PT à frente em 2.663 municípios no T1 e 2.875 no T2.
+- **Quem era mais PL no T1 andou mais.** A correlação entre o PT do T1 e o swing (em logit) é −0,54, e o padrão se mantém na escala logit, então não é só efeito de teto. Isso explica o RJ, SP, SC e RR no topo e PI, BA e PA/AM na base. Dentro da UF, depois de controlar o reduto, os resíduos são pequenos (R² ponderado 0,61); nenhum município grande se destaca como atípico.
+- **Porte**: o swing cresce com o tamanho (+3,7 p.p. nos de até 10 mil eleitores; +7,0 nos de 100 a 500 mil; +6,4 nos acima de 500 mil), e a abstenção caiu mais nas grandes cidades (−2,4 p.p. contra −1,1).
+- **Minas Gerais** (única UF que trocou de lado, de −5,4 para +0,9; 76 dos 211 municípios que viraram, ganho líquido de 697.925 votos de margem): o movimento NÃO foi uniforme. Jequitinhonha +2,6, Norte +3,8 e Mucuri +3,8 contra +7,2 a +7,8 no Sul/Sudoeste, Oeste, Noroeste, Triângulo e Central; RMBH +6,9, com 34,8% do ganho para 31,9% do eleitorado (proporcional). A virada veio do centro-sul do estado, não do Norte (já PT) nem de um único polo.
+- Ressalvas: dados agregados (ecológicos); mesorregião de MG pela divisão do IBGE de 2018 (geobr).
